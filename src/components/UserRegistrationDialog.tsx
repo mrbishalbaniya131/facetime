@@ -19,6 +19,7 @@ import { addRegisteredUser, addAuthenticatorToUser, getRegisteredUserByName } fr
 import type { WebcamCaptureRef } from "./WebcamCapture";
 import { UserPlus, Loader2, Fingerprint } from "lucide-react";
 import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
+import type { RegisteredUser } from "@/types";
 
 interface UserRegistrationDialogProps {
   webcamRef: React.RefObject<WebcamCaptureRef>;
@@ -30,11 +31,21 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
   const [isLoading, setIsLoading] = useState(false);
   const [isWebAuthnLoading, setIsWebAuthnLoading] = useState(false);
   const [isWebAuthnSupported, setIsWebAuthnSupported] = useState(false);
+  const [user, setUser] = useState<RegisteredUser | undefined>(undefined);
   const { toast } = useToast();
 
   useEffect(() => {
     setIsWebAuthnSupported(browserSupportsWebAuthn());
   }, []);
+
+  useEffect(() => {
+    if (name) {
+      setUser(getRegisteredUserByName(name));
+    } else {
+      setUser(undefined);
+    }
+  }, [name, isOpen]);
+
 
   const handleRegisterFace = async () => {
     if (!name) {
@@ -46,7 +57,6 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
       return;
     }
     
-    // Check if user with this name already exists for face registration
     const existingUser = getRegisteredUserByName(name);
     if (existingUser && existingUser.descriptor && existingUser.descriptor.length > 0) {
          toast({
@@ -62,8 +72,9 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
       try {
         const descriptor = await webcamRef.current.captureFace();
         if (descriptor) {
+          const newUser = { name, descriptor, authenticators: existingUser?.authenticators || [] };
           // Add to client-side storage
-          addRegisteredUser({ name, descriptor, authenticators: [] });
+          addRegisteredUser(newUser);
           
           // Also add to server-side "DB"
           await fetch('/api/register-user', {
@@ -77,7 +88,7 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
             description: `${name}'s face has been registered.`,
           });
           webcamRef.current.reloadFaceMatcher();
-          // Keep dialog open to register fingerprint
+          setUser(getRegisteredUserByName(name)); // Refresh user state
         }
       } catch (error: any) {
         toast({
@@ -102,11 +113,23 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
     }
     setIsWebAuthnLoading(true);
     try {
+        // Ensure user exists on server before getting challenge
+        let existingUser = getRegisteredUserByName(name);
+        if (!existingUser) {
+             const res = await fetch('/api/register-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, descriptor: null }), // Create user without descriptor
+            });
+            if (!res.ok) throw new Error("Failed to create user on server.");
+            addRegisteredUser({ name, authenticators: [] }); // Add to local storage as well
+        }
+
         // Get challenge from server
         const respChallenge = await fetch(`/api/register-challenge?username=${name}`);
         if (!respChallenge.ok) {
             const errorText = await respChallenge.text();
-            throw new Error(errorText || 'Failed to get registration challenge from server.');
+            throw new Error(`Failed to get registration challenge from server: ${errorText}`);
         }
 
         const options = await respChallenge.json();
@@ -134,6 +157,7 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
                 title: "Fingerprint Registered",
                 description: "You can now log in using your fingerprint.",
              });
+             setUser(getRegisteredUserByName(name)); // Refresh user state
         } else {
             throw new Error(verificationJSON.error || 'Fingerprint verification failed.');
         }
@@ -148,8 +172,7 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
     }
   }
 
-  const userExists = getRegisteredUserByName(name);
-  const faceRegistered = !!userExists?.descriptor && userExists.descriptor.length > 0;
+  const faceRegistered = !!user?.descriptor && user.descriptor.length > 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -187,7 +210,7 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
           </div>
         </div>
         <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-          <Button onClick={handleRegisterFace} disabled={isLoading || faceRegistered || !name}>
+          <Button onClick={handleRegisterFace} disabled={isLoading || isWebAuthnLoading || faceRegistered || !name}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -199,7 +222,7 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
           </Button>
 
           {isWebAuthnSupported && (
-            <Button onClick={handleRegisterFingerprint} variant="outline" disabled={isWebAuthnLoading || !userExists}>
+            <Button onClick={handleRegisterFingerprint} variant="outline" disabled={isWebAuthnLoading || isLoading || !name}>
               {isWebAuthnLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

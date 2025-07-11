@@ -31,7 +31,7 @@ export async function loadModels() {
         try {
             await checkFaceApi();
             console.log("Loading face-api models...");
-            const MODEL_URL = '/models'; // Models will be loaded from the public/models directory
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@0.22.2/models';
             await Promise.all([
               faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
               faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),

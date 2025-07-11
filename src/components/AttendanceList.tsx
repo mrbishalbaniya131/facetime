@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
 import { getAttendanceLog } from "@/lib/storage";
 import type { AttendanceRecord } from "@/types";
 import { User, Clock } from "lucide-react";
@@ -15,47 +14,60 @@ export default function AttendanceList() {
     // Sort by most recent first
     log.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     setAttendance(log);
+
+    const handleStorageChange = () => {
+       const updatedLog = getAttendanceLog();
+       updatedLog.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+       setAttendance(updatedLog);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // Refresh on focus to catch updates from other tabs
+    window.addEventListener('focus', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleStorageChange);
+    };
+
   }, []);
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        <Table>
-          <TableCaption>A list of all recorded attendances.</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[200px]">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Name
-                </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Timestamp
-                </div>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {attendance.length > 0 ? (
-              attendance.map((record, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium">{record.name}</TableCell>
-                  <TableCell>{new Date(record.timestamp).toLocaleString()}</TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={2} className="text-center h-24">
-                  No attendance records found.
-                </TableCell>
+      <Table>
+        <TableCaption>A list of recent attendance records.</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Name
+              </div>
+            </TableHead>
+            <TableHead>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Timestamp
+              </div>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {attendance.length > 0 ? (
+            attendance.slice(0, 5).map((record, index) => ( // Show recent 5
+              <TableRow key={index}>
+                <TableCell className="font-medium">{record.name}</TableCell>
+                <TableCell>{new Date(record.timestamp).toLocaleString()}</TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={2} className="text-center h-24">
+                No attendance records found for today.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
   );
 }

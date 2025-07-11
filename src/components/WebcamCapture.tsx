@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "./ui/skeleton";
 import type { RegisteredUser } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
-import { compareDetectedFaces, type CompareDetectedFacesInput } from "@/ai/flows/compare-detected-faces";
+import { analyzePerson, type AnalyzePersonInput, type AnalyzePersonOutput } from "@/ai/flows/compare-detected-faces";
 import { textToSpeech } from "@/ai/flows/text-to-speech";
 
 declare const faceapi: any;
@@ -17,7 +17,7 @@ export interface WebcamCaptureRef {
 }
 
 interface WebcamCaptureProps {
-  onNewThought?: (thought: string) => void;
+  onNewAnalysis?: (analysis: AnalyzePersonOutput) => void;
   onNewAudio?: (audioSrc: string) => void;
 }
 
@@ -163,15 +163,26 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
                 continue; // Skip to next detection
             }
 
-            const aiInput: CompareDetectedFacesInput = {
+            // Capture the current frame as a data URI
+            const frameCanvas = document.createElement('canvas');
+            frameCanvas.width = video.videoWidth;
+            frameCanvas.height = video.videoHeight;
+            const frameCtx = frameCanvas.getContext('2d');
+            if(frameCtx) {
+              frameCtx.drawImage(video, 0, 0);
+            }
+            const imageDataUri = frameCanvas.toDataURL('image/jpeg');
+
+            const aiInput: AnalyzePersonInput = {
+              imageDataUri,
               detectedFaceDescriptor: Array.from(detection.descriptor),
               registeredUserDescriptors,
             };
 
-            const result = await compareDetectedFaces(aiInput);
+            const result = await analyzePerson(aiInput);
 
-            if (props.onNewThought) {
-                props.onNewThought(result.thought);
+            if (props.onNewAnalysis) {
+                props.onNewAnalysis(result);
             }
 
             let box = detection.detection.box;
@@ -207,7 +218,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
             drawBox.draw(canvas);
 
           } catch (error) {
-             console.error("Error during face comparison flow:", error);
+             console.error("Error during face analysis flow:", error);
           } finally {
             processing.current = false;
           }
@@ -220,7 +231,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
          });
       }
 
-    }, 1000); // Run every second
+    }, 2000); // Run every 2 seconds to not overload the AI
 
     return () => clearInterval(intervalId);
   };

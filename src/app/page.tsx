@@ -8,13 +8,21 @@ import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, CheckCircle, ShieldAlert } from "lucide-react";
+import { Bot, CheckCircle, ShieldAlert, Activity } from "lucide-react";
+import type { AnalyzePersonOutput } from "@/ai/flows/compare-detected-faces";
+
+interface AiLog {
+  id: number;
+  thought: string;
+  activity?: string;
+  timestamp: string;
+}
 
 export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const webcamRef = useRef<WebcamCaptureRef>(null);
-  const [aiThoughts, setAiThoughts] = useState<string[]>([]);
+  const [aiLogs, setAiLogs] = useState<AiLog[]>([]);
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -31,28 +39,41 @@ export default function Home() {
     }
   }, [audioSrc]);
 
-  const handleNewThought = (thought: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setAiThoughts(prev => [`[${timestamp}] ${thought}`, ...prev].slice(0, 100)); // Keep last 100 thoughts
+  const handleNewAnalysis = (analysis: AnalyzePersonOutput) => {
+    const newLog: AiLog = {
+      id: Date.now(),
+      thought: analysis.thought,
+      activity: analysis.activityDescription,
+      timestamp: new Date().toLocaleTimeString(),
+    };
+    setAiLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
   };
 
   const handleNewAudio = (newAudioSrc: string) => {
     setAudioSrc(newAudioSrc);
   };
 
-  const renderThought = (thought: string) => {
+  const renderLog = (log: AiLog) => {
     let icon = <Bot className="h-4 w-4 text-primary shrink-0" />;
-    if (thought.includes("Found best match")) {
+    if (log.thought.includes("Found best match")) {
       icon = <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />;
-    } else if (thought.includes("No match declared") || thought.includes("No potential matches") || thought.includes("below the threshold")) {
+    } else if (log.thought.includes("No match declared") || log.thought.includes("No potential matches") || log.thought.includes("below the threshold")) {
       icon = <ShieldAlert className="h-4 w-4 text-yellow-500 shrink-0" />;
     }
     
     return (
-       <div className="flex items-start gap-3">
-        {icon}
-        <p className="text-xs text-muted-foreground break-words whitespace-pre-wrap">{thought.substring(thought.indexOf(']') + 2)}</p>
-      </div>
+       <div className="flex flex-col gap-2">
+          <div className="flex items-start gap-3">
+            {icon}
+            <p className="text-xs text-muted-foreground break-words whitespace-pre-wrap">{log.thought}</p>
+          </div>
+          {log.activity && (
+             <div className="flex items-start gap-3 pl-1">
+                <Activity className="h-4 w-4 text-blue-500 shrink-0" />
+                <p className="text-xs font-semibold text-muted-foreground break-words whitespace-pre-wrap">{log.activity}</p>
+             </div>
+          )}
+       </div>
     )
   }
 
@@ -83,7 +104,7 @@ export default function Home() {
             <CardContent className="flex flex-col items-center gap-6">
               <WebcamCapture 
                 ref={webcamRef} 
-                onNewThought={handleNewThought} 
+                onNewAnalysis={handleNewAnalysis} 
                 onNewAudio={handleNewAudio}
               />
             </CardContent>
@@ -95,16 +116,16 @@ export default function Home() {
                     <Bot className="h-6 w-6" />
                     <span className="font-headline">AI Activity Log</span>
                 </CardTitle>
-                <CardDescription>Real-time thoughts from the recognition AI.</CardDescription>
+                <CardDescription>Real-time analysis from the recognition AI.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ScrollArea className="h-96 w-full pr-4">
                     <div className="space-y-4">
-                        {aiThoughts.length > 0 ? (
-                            aiThoughts.map((thought, index) => (
-                                <div key={index} className="flex flex-col">
-                                  <span className="text-xs font-mono text-muted-foreground/50">{thought.substring(1, thought.indexOf(']'))}</span>
-                                  {renderThought(thought)}
+                        {aiLogs.length > 0 ? (
+                            aiLogs.map((log) => (
+                                <div key={log.id} className="flex flex-col">
+                                  <span className="text-xs font-mono text-muted-foreground/50">{log.timestamp}</span>
+                                  {renderLog(log)}
                                 </div>
                             ))
                         ) : (
@@ -118,7 +139,9 @@ export default function Home() {
           </Card>
         </div>
       </main>
-      {audioSrc && <audio ref={audioRef} src={audioSrc} />}
+      {audioSrc && (
+        <audio ref={audioRef} src={audioSrc} />
+      )}
     </div>
   );
 }

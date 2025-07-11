@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from "react";
@@ -7,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "./ui/skeleton";
 import type { RegisteredUser } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
+import { compareDetectedFaces, type CompareDetectedFacesInput } from "@/ai/flows/compare-detected-faces";
 
 declare const faceapi: any;
 
@@ -15,18 +15,30 @@ export interface WebcamCaptureRef {
   reloadFaceMatcher: () => void;
 }
 
+interface WebcamCaptureProps {
+  onNewThought?: (thought: string) => void;
+}
+
 const INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes
 
-export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
+export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((props, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isReady, setIsReady] = useState(false);
   const [faceMatcher, setFaceMatcher] = useState<any>(null);
   const { toast } = useToast();
   const attendanceToday = useRef<Set<string>>(new Set());
-  const [detectorOptions] = useState(() => new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }));
+  const [detectorOptions, setDetectorOptions] = useState<any>(null);
   const { logout } = useAuth();
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
+  const processing = useRef(false);
+
+  useEffect(() => {
+    // This ensures faceapi is defined before we use it.
+    if (typeof faceapi !== 'undefined') {
+      setDetectorOptions(new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }));
+    }
+  }, []);
 
   const resetInactivityTimer = () => {
     if (inactivityTimer.current) {
@@ -42,7 +54,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
   };
 
   const setup = async () => {
-    // Models are loaded in ModelLoader
+    // Models are loaded globally in AuthProvider
     await startWebcam();
     loadFaceMatcher();
     loadTodaysAttendance();
@@ -58,7 +70,9 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
   };
   
   useEffect(() => {
-    setup();
+    if (detectorOptions) { // Only run setup once detectorOptions is set
+        setup();
+    }
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
@@ -69,7 +83,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [detectorOptions]);
 
   const startWebcam = async () => {
     try {
@@ -98,7 +112,11 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
       if (labeledFaceDescriptors.length > 0) {
         const matcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5);
         setFaceMatcher(matcher);
+      } else {
+        setFaceMatcher(null);
       }
+    } else {
+        setFaceMatcher(null);
     }
   };
 
@@ -106,6 +124,9 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
     captureFace: async () => {
       if (!videoRef.current) {
         throw new Error("Webcam not ready.");
+      }
+      if (!detectorOptions) {
+        throw new Error("Face detector not initialized.");
       }
       const detection = await faceapi.detectSingleFace(videoRef.current, detectorOptions).withFaceLandmarks().withFaceDescriptor();
       if (!detection) {
@@ -122,14 +143,13 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
-    if (!video || !canvas) return;
+    if (!video || !canvas || !detectorOptions) return;
 
     const displaySize = { width: video.clientWidth, height: video.clientHeight };
     faceapi.matchDimensions(canvas, displaySize);
 
     const intervalId = setInterval(async () => {
-      if (!video || video.paused || video.ended) {
-        clearInterval(intervalId);
+      if (!video || video.paused || video.ended || processing.current) {
         return;
       }
       
@@ -143,33 +163,62 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
       
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      resizedDetections.forEach((detection: any) => {
-        let box = detection.detection.box;
-        let drawBox = new faceapi.draw.DrawBox(box, { boxColor: '#00CED1' });
-        
-        if (faceMatcher) {
-          const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
-          if (bestMatch.label !== 'unknown') {
-            const name = bestMatch.label;
-            drawBox = new faceapi.draw.DrawBox(box, { label: name, boxColor: '#1E90FF' });
+      if (faceMatcher) {
+        for (const detection of resizedDetections) {
+          processing.current = true;
+          try {
+            const registeredUserDescriptors = getRegisteredUsers()
+              .filter(u => u.descriptor && u.descriptor.length > 0)
+              .map(u => ({ userId: u.name, descriptor: u.descriptor! }));
+            
+            const aiInput: CompareDetectedFacesInput = {
+              detectedFaceDescriptor: Array.from(detection.descriptor),
+              registeredUserDescriptors,
+            };
 
-            if (!attendanceToday.current.has(name)) {
-              attendanceToday.current.add(name);
-              addAttendanceLog({ name, timestamp: new Date().toISOString() });
-              toast({
-                title: "Attendance Marked",
-                description: `Welcome, ${name}! Your attendance has been recorded.`,
-              });
+            const result = await compareDetectedFaces(aiInput);
+
+            if (props.onNewThought) {
+                props.onNewThought(result.thought);
             }
+
+            let box = detection.detection.box;
+            let drawBox = new faceapi.draw.DrawBox(box, { boxColor: '#00CED1', label: 'Analyzing...' });
+
+            if (result.userId && result.matchConfidence) {
+                const name = result.userId;
+                drawBox = new faceapi.draw.DrawBox(box, { label: `${name} (${(result.matchConfidence*100).toFixed(1)}%)`, boxColor: '#1E90FF' });
+
+                if (!attendanceToday.current.has(name)) {
+                  attendanceToday.current.add(name);
+                  addAttendanceLog({ name, timestamp: new Date().toISOString() });
+                  toast({
+                    title: "Attendance Marked",
+                    description: `Welcome, ${name}! Your attendance has been recorded.`,
+                  });
+                }
+            } else {
+                drawBox = new faceapi.draw.DrawBox(box, { label: `Unknown`, boxColor: '#FF6347' });
+            }
+            drawBox.draw(canvas);
+
+          } catch (error) {
+             console.error("Error during face comparison flow:", error);
+          } finally {
+            processing.current = false;
           }
         }
-        drawBox.draw(canvas);
-      });
+      } else {
+         resizedDetections.forEach((detection: any) => {
+            const box = detection.detection.box;
+            const drawBox = new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' });
+            drawBox.draw(canvas);
+         });
+      }
 
-    }, 200);
+    }, 1000); // Run every second
 
     return () => clearInterval(intervalId);
   };
@@ -192,3 +241,4 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
 });
 
 WebcamCapture.displayName = 'WebcamCapture';
+    

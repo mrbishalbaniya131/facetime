@@ -24,31 +24,13 @@ export type CompareDetectedFacesInput = z.infer<typeof CompareDetectedFacesInput
 const CompareDetectedFacesOutputSchema = z.object({
   userId: z.string().optional().describe('The ID of the matched user, if any.'),
   matchConfidence: z.number().optional().describe('The confidence of the face match (0-1), if any.'),
+  thought: z.string().describe('The thought process of the AI.'),
 });
 export type CompareDetectedFacesOutput = z.infer<typeof CompareDetectedFacesOutputSchema>;
 
 export async function compareDetectedFaces(input: CompareDetectedFacesInput): Promise<CompareDetectedFacesOutput> {
   return compareDetectedFacesFlow(input);
 }
-
-const prompt = ai.definePrompt({
-  name: 'compareDetectedFacesPrompt',
-  input: {schema: CompareDetectedFacesInputSchema},
-  output: {schema: CompareDetectedFacesOutputSchema},
-  prompt: `You are an expert facial recognition system.
-
-You are given a detected face descriptor and a list of registered user descriptors.
-Your task is to compare the detected face descriptor against the registered user descriptors and find the best match.
-
-Return the userId of the best match and the matchConfidence (a number between 0 and 1 representing the confidence of the match).
-If no match is found, return an empty object.
-
-Detected Face Descriptor: {{{detectedFaceDescriptor}}}
-Registered User Descriptors: {{{registeredUserDescriptors}}}
-
-Output format: { userId: string, matchConfidence: number } or {} if no match is found.
-`,
-});
 
 const compareDetectedFacesFlow = ai.defineFlow(
   {
@@ -59,7 +41,7 @@ const compareDetectedFacesFlow = ai.defineFlow(
   async input => {
     // Simple cosine similarity implementation for face comparison
     function cosineSimilarity(descriptor1: number[], descriptor2: number[]): number {
-      if (descriptor1.length !== descriptor2.length) {
+      if (descriptor1.length !== descriptor2.length || descriptor1.length === 0) {
         return 0;
       }
 
@@ -82,23 +64,32 @@ const compareDetectedFacesFlow = ai.defineFlow(
 
       return dotProduct / (magnitude1 * magnitude2);
     }
-
+    
+    let thought = `Analyzing detected face. Comparing against ${input.registeredUserDescriptors.length} registered user(s).`;
     let bestMatch: { userId: string; matchConfidence: number } = { userId: '', matchConfidence: 0 };
 
     for (const registeredUser of input.registeredUserDescriptors) {
       const similarity = cosineSimilarity(input.detectedFaceDescriptor, registeredUser.descriptor);
-
-      if (similarity > bestMatch.matchConfidence) {\n        bestMatch = { userId: registeredUser.userId, matchConfidence: similarity };
+      if (similarity > bestMatch.matchConfidence) {
+        bestMatch = { userId: registeredUser.userId, matchConfidence: similarity };
       }
     }
-
-    if (bestMatch.matchConfidence > 0.6) { // Adjust threshold as needed
-      return { userId: bestMatch.userId, matchConfidence: bestMatch.matchConfidence };
+    
+    const MATCH_THRESHOLD = 0.5; // Confidence threshold
+    if (bestMatch.matchConfidence > MATCH_THRESHOLD) {
+        const confidencePercent = (bestMatch.matchConfidence * 100).toFixed(1);
+        thought += `\nFound best match: ${bestMatch.userId} with ${confidencePercent}% confidence. Match exceeds threshold of ${MATCH_THRESHOLD * 100}%.`;
+        return { userId: bestMatch.userId, matchConfidence: bestMatch.matchConfidence, thought };
     } else {
-      return {};
+        if(bestMatch.userId) {
+            const confidencePercent = (bestMatch.matchConfidence * 100).toFixed(1);
+            thought += `\nBest match is ${bestMatch.userId} with ${confidencePercent}% confidence, but it's below the ${MATCH_THRESHOLD * 100}% threshold. No match declared.`;
+        } else {
+            thought += `\nNo potential matches found.`;
+        }
+        return { thought };
     }
-
-    // const {output} = await prompt(input);
-    // return output!;
   }
 );
+
+    

@@ -184,6 +184,9 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
             if (props.onNewAnalysis) {
                 props.onNewAnalysis(result);
             }
+            if (result.audioSrc && props.onNewAudio) {
+                props.onNewAudio(result.audioSrc);
+            }
 
             let box = detection.detection.box;
             let drawBox = new faceapi.draw.DrawBox(box, { boxColor: '#00CED1', label: 'Analyzing...' });
@@ -202,13 +205,13 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
                     description: toastMessage,
                   });
 
-                  // Generate and play voice alert
+                  // Generate and play voice alert for attendance (separate from activity)
                   if (props.onNewAudio) {
                     try {
                       const { audio } = await textToSpeech(toastMessage);
                       props.onNewAudio(audio);
                     } catch (ttsError) {
-                      console.error("Error generating TTS:", ttsError);
+                      console.error("Error generating TTS for attendance:", ttsError);
                     }
                   }
                 }
@@ -231,7 +234,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
          });
       }
 
-    }, 2000); // Run every 2 seconds to not overload the AI
+    }, 3000); // Run every 3 seconds to not overload the AI and prevent audio overlap
 
     return () => clearInterval(intervalId);
   };

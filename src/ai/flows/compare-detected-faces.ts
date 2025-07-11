@@ -11,6 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { textToSpeech } from './text-to-speech';
 
 const AnalyzePersonInputSchema = z.object({
   imageDataUri: z
@@ -31,6 +32,7 @@ const AnalyzePersonOutputSchema = z.object({
   matchConfidence: z.number().optional().describe('The confidence of the face match (0-1), if any.'),
   activityDescription: z.string().describe("A description of the person's activity in the image."),
   thought: z.string().describe('The thought process of the AI.'),
+  audioSrc: z.string().optional().describe('Base64 encoded WAV audio of the activity description.'),
 });
 export type AnalyzePersonOutput = z.infer<typeof AnalyzePersonOutputSchema>;
 
@@ -41,13 +43,10 @@ export async function analyzePerson(input: AnalyzePersonInput): Promise<AnalyzeP
 const prompt = ai.definePrompt({
     name: 'analyzePersonPrompt',
     input: {schema: AnalyzePersonInputSchema},
-    output: {schema: AnalyzePersonOutputSchema},
+    output: {schema: z.object({ activityDescription: AnalyzePersonOutputSchema.shape.activityDescription }) }, // Only need activity from LLM
     prompt: `You are a security AI. Your task is to analyze an image of a person.
-1.  First, describe the person's apparent activity based on the image. For example: "The person is smiling and looking at the camera." or "The person appears to be talking on the phone."
-2.  Next, you will be given a face descriptor for the face detected in the image and a list of known face descriptors for registered users.
-3.  Your job is to determine if the detected face matches any of the registered users.
-4.  Do not perform the comparison yourself. You will be provided with the result of a separate comparison process.
-5.  Formulate a "thought" process based on the comparison result provided in the input, explaining the match decision.
+1. First, describe the person's apparent activity based on the image in a short, concise sentence. For example: "The person is smiling and looking at the camera." or "The person appears to be talking on the phone."
+2. Do not greet or use any conversational filler. Just provide the activity description.
 
 Use the following as the source of information.
 
@@ -93,12 +92,23 @@ const analyzePersonFlow = ai.defineFlow(
       throw new Error("Failed to get a response from the AI model.");
     }
     const { activityDescription } = output;
+
+    let audioSrc: string | undefined = undefined;
+    if (activityDescription) {
+        try {
+            const ttsResult = await textToSpeech(activityDescription);
+            audioSrc = ttsResult.audio;
+        } catch (ttsError) {
+            console.error("Error in TTS generation during analysis:", ttsError);
+            // Non-fatal, continue without audio
+        }
+    }
     
     const MATCH_THRESHOLD = 0.5;
     if (bestMatch.matchConfidence > MATCH_THRESHOLD) {
         const confidencePercent = (bestMatch.matchConfidence * 100).toFixed(1);
         thought += `\nFound best match: ${bestMatch.userId} with ${confidencePercent}% confidence. Match exceeds threshold of ${MATCH_THRESHOLD * 100}%.`;
-        return { userId: bestMatch.userId, matchConfidence: bestMatch.matchConfidence, thought, activityDescription };
+        return { userId: bestMatch.userId, matchConfidence: bestMatch.matchConfidence, thought, activityDescription, audioSrc };
     } else {
         if(bestMatch.userId && bestMatch.matchConfidence > 0) {
             const confidencePercent = (bestMatch.matchConfidence * 100).toFixed(1);
@@ -106,7 +116,7 @@ const analyzePersonFlow = ai.defineFlow(
         } else {
             thought += `\nNo potential matches found.`;
         }
-        return { thought, activityDescription };
+        return { thought, activityDescription, audioSrc };
     }
   }
 );

@@ -1,0 +1,118 @@
+
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import Header from "@/components/Header";
+import { getRegisteredUsers } from "@/lib/storage";
+import type { RegisteredUser } from "@/types";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Fingerprint, Smile } from "lucide-react";
+
+export default function UsersPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [users, setUsers] = useState<RegisteredUser[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login");
+    }
+  }, [user, loading, router]);
+  
+  useEffect(() => {
+    if(user) {
+        const allUsers = getRegisteredUsers();
+        setUsers(allUsers);
+        setDataLoading(false);
+    }
+  }, [user]);
+
+  if (loading || !user || dataLoading) {
+    return (
+       <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
+            <h1 className="text-3xl font-bold mb-6 font-headline">User Management</h1>
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-1/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-2">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                    </div>
+                </CardContent>
+            </Card>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col min-h-screen bg-background">
+      <Header />
+      <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
+        <h1 className="text-3xl font-bold mb-6 font-headline">User Management</h1>
+        <Card>
+            <CardHeader>
+                <CardTitle>Registered Users</CardTitle>
+                <CardDescription>A list of all users registered in the system.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Face Registered</TableHead>
+                        <TableHead>Fingerprint Registered</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {users.length > 0 ? (
+                        users.map((u) => (
+                        <TableRow key={u.name}>
+                            <TableCell className="font-medium">{u.name}</TableCell>
+                            <TableCell>
+                                {u.descriptor && u.descriptor.length > 0 ? (
+                                    <Badge variant="secondary" className="text-green-600 border-green-200">
+                                        <Smile className="mr-1 h-3 w-3" /> Yes
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="outline">No</Badge>
+                                )}
+                            </TableCell>
+                            <TableCell>
+                                {u.authenticators && u.authenticators.length > 0 ? (
+                                     <Badge variant="secondary" className="text-blue-600 border-blue-200">
+                                        <Fingerprint className="mr-1 h-3 w-3" /> Yes ({u.authenticators.length})
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="outline">No</Badge>
+                                )}
+                            </TableCell>
+                        </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                        <TableCell colSpan={3} className="h-24 text-center">
+                            No users registered yet.
+                        </TableCell>
+                        </TableRow>
+                    )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}

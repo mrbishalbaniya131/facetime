@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -5,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Eye, LayoutDashboard, LogOut, Camera } from "lucide-react";
+import { Eye, LayoutDashboard, LogOut, Camera, Users } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -20,6 +21,7 @@ export default function Header() {
   const navLinks = [
     { href: "/", label: "Attendance", icon: Camera },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/dashboard/users", label: "Users", icon: Users },
   ];
 
   if (!user) return null;

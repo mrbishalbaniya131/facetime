@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { WebcamCapture, type WebcamCaptureRef } from "@/components/WebcamCapture";
 import Header from "@/components/Header";
-import { UserRegistrationDialog } from "@/components/UserRegistrationDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -23,7 +22,7 @@ export default function Home() {
   if (loading || !user) {
     return (
       <div className="flex flex-col min-h-screen">
-        <Header />
+        <Header webcamRef={webcamRef} />
         <main className="flex-grow flex items-center justify-center p-4 sm:p-6 md:p-8">
           <div className="w-full max-w-4xl flex flex-col items-center gap-6">
             <Skeleton className="h-10 w-48" />
@@ -37,7 +36,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <Header />
+      <Header webcamRef={webcamRef} />
       <main className="flex-grow flex flex-col items-center justify-center p-4 sm:p-6 md:p-8">
         <Card className="w-full max-w-4xl shadow-lg">
           <CardHeader className="text-center">
@@ -45,7 +44,6 @@ export default function Home() {
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-6">
             <WebcamCapture ref={webcamRef} />
-            <UserRegistrationDialog webcamRef={webcamRef} />
           </CardContent>
         </Card>
       </main>

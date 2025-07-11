@@ -7,8 +7,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Eye, LayoutDashboard, LogOut, Camera, Users } from "lucide-react";
+import { UserRegistrationDialog } from "./UserRegistrationDialog";
+import type { WebcamCaptureRef } from "./WebcamCapture";
 
-export default function Header() {
+interface HeaderProps {
+    webcamRef?: React.RefObject<WebcamCaptureRef>;
+}
+
+export default function Header({ webcamRef }: HeaderProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -52,6 +58,9 @@ export default function Header() {
         </nav>
         <div className="flex flex-1 items-center justify-end gap-2">
             <span className="text-sm text-muted-foreground hidden md:inline">Welcome, {user.username}</span>
+            {pathname === '/' && webcamRef && (
+                <UserRegistrationDialog webcamRef={webcamRef} />
+            )}
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
               Logout

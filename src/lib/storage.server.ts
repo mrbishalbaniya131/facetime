@@ -12,7 +12,7 @@ const DB_PATH = path.join(process.cwd(), 'user-db.json');
 function readDb(): RegisteredUser[] {
     try {
         if (!fs.existsSync(DB_PATH)) {
-            return [];
+            fs.writeFileSync(DB_PATH, JSON.stringify([], null, 2));
         }
         const data = fs.readFileSync(DB_PATH, 'utf-8');
         return JSON.parse(data);
@@ -80,4 +80,19 @@ export const updateUserAuthenticatorCounter = (name: string, credentialID: strin
             writeDb(users);
         }
     }
+};
+
+export const editRegisteredUser = (oldName: string, newName: string): void => {
+    const users = readDb();
+    const userIndex = users.findIndex(u => u.name === oldName);
+    if (userIndex > -1) {
+        users[userIndex].name = newName;
+    }
+    writeDb(users);
+}
+
+export const deleteRegisteredUser = (name: string): void => {
+    let users = readDb();
+    users = users.filter(u => u.name !== name);
+    writeDb(users);
 };

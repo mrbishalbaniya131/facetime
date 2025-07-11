@@ -59,6 +59,24 @@ export const addAuthenticatorToUser = (name: string, newAuthenticator: Authentic
     }
 }
 
+export const editRegisteredUser = (oldName: string, newName: string): void => {
+  if (typeof window === "undefined") return;
+  const users = getRegisteredUsers();
+  const userIndex = users.findIndex(u => u.name === oldName);
+  if (userIndex > -1) {
+      users[userIndex].name = newName;
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  }
+};
+
+export const deleteRegisteredUser = (name: string): void => {
+  if (typeof window === "undefined") return;
+  let users = getRegisteredUsers();
+  users = users.filter(u => u.name !== name);
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+};
+
+
 // Functions for Attendance Log
 export const getAttendanceLog = (): AttendanceRecord[] => {
   if (typeof window === "undefined") return [];

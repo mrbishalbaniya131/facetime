@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/Header";
@@ -12,12 +12,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Fingerprint, Smile } from "lucide-react";
+import { UserActions } from "@/components/UserActions";
 
 export default function UsersPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [users, setUsers] = useState<RegisteredUser[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+
+  const fetchUsers = useCallback(() => {
+    const allUsers = getRegisteredUsers();
+    setUsers(allUsers);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -27,11 +33,14 @@ export default function UsersPage() {
   
   useEffect(() => {
     if(user) {
-        const allUsers = getRegisteredUsers();
-        setUsers(allUsers);
+        fetchUsers();
         setDataLoading(false);
     }
-  }, [user]);
+  }, [user, fetchUsers]);
+
+  const handleUserUpdate = () => {
+    fetchUsers();
+  }
 
   if (loading || !user || dataLoading) {
     return (
@@ -74,6 +83,7 @@ export default function UsersPage() {
                         <TableHead>Name</TableHead>
                         <TableHead>Face Registered</TableHead>
                         <TableHead>Fingerprint Registered</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -99,11 +109,14 @@ export default function UsersPage() {
                                     <Badge variant="outline">No</Badge>
                                 )}
                             </TableCell>
+                            <TableCell className="text-right">
+                                <UserActions user={u} onUserUpdate={handleUserUpdate} />
+                            </TableCell>
                         </TableRow>
                         ))
                     ) : (
                         <TableRow>
-                        <TableCell colSpan={3} className="h-24 text-center">
+                        <TableCell colSpan={4} className="h-24 text-center">
                             No users registered yet.
                         </TableCell>
                         </TableRow>

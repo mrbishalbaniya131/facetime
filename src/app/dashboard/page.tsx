@@ -10,11 +10,25 @@ import { getAttendanceLog, getRegisteredUsers } from "@/lib/storage";
 import { Users, Check, X, Percent } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AttendanceSummaryCard, type SummaryStat } from "@/components/AttendanceSummaryCard";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { ChartConfig, ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
+
+const chartConfig = {
+  present: {
+    label: "Present",
+    color: "hsl(var(--chart-2))",
+  },
+  absent: {
+    label: "Absent",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<SummaryStat[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
@@ -25,10 +39,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user) {
-      const today = new Date().toISOString().split('T')[0];
       const allUsers = getRegisteredUsers();
       const allLogs = getAttendanceLog();
-      
+      const today = new Date().toISOString().split('T')[0];
+
+      // --- Calculate Summary Stats ---
       const presentTodaySet = new Set(
         allLogs
           .filter(log => log.timestamp.startsWith(today))
@@ -46,8 +61,31 @@ export default function DashboardPage() {
         { title: "Absent Today", value: absentCount.toString(), icon: <X className="h-4 w-4 text-muted-foreground" /> },
         { title: "Attendance Rate", value: `${attendancePercentage}%`, icon: <Percent className="h-4 w-4 text-muted-foreground" /> },
       ];
-
       setStats(summaryStats);
+
+      // --- Calculate Chart Data (last 7 days) ---
+      const last7Days: any[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        
+        const presentOnDay = new Set(
+          allLogs
+            .filter(log => log.timestamp.startsWith(dateStr))
+            .map(log => log.name)
+        ).size;
+        
+        const absentOnDay = totalUsers - presentOnDay;
+
+        last7Days.push({
+          date: d.toLocaleDateString('en-US', { weekday: 'short' }),
+          present: presentOnDay,
+          absent: absentOnDay,
+        });
+      }
+      setChartData(last7Days);
+
       setStatsLoading(false);
     }
   }, [user]);
@@ -104,10 +142,25 @@ export default function DashboardPage() {
             </Card>
             <Card className="lg:col-span-3">
                 <CardHeader>
-                    <CardTitle>Attendance Trends</CardTitle>
+                    <CardTitle>Attendance Trends (Last 7 Days)</CardTitle>
                 </CardHeader>
-                <CardContent className="flex items-center justify-center h-full text-muted-foreground">
-                    <p>Chart component will be here.</p>
+                <CardContent>
+                  {statsLoading ? (
+                     <Skeleton className="h-[250px] w-full" />
+                  ) : (
+                    <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
+                          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                          <Tooltip content={<ChartTooltipContent />} />
+                          <Legend />
+                          <Bar dataKey="present" fill="var(--color-present)" radius={4} />
+                          <Bar dataKey="absent" fill="var(--color-absent)" radius={4} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  )}
                 </CardContent>
             </Card>
         </div>

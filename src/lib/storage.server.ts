@@ -35,6 +35,24 @@ export const getRegisteredUserByName = (name: string): RegisteredUser | undefine
     return users.find(u => u.name === name);
 };
 
+export const addRegisteredUser = (newUser: RegisteredUser): void => {
+  const users = readDb();
+  // Check if user exists, if so, update, otherwise add
+  const userIndex = users.findIndex(u => u.name === newUser.name);
+  if (userIndex > -1) {
+      // Preserve authenticators if they exist
+      const existingUser = users[userIndex];
+      users[userIndex] = { 
+        ...newUser,
+        authenticators: existingUser.authenticators || [],
+       };
+  } else {
+      users.push(newUser);
+  }
+  writeDb(users);
+};
+
+
 export const addAuthenticatorToUser = (name: string, newAuthenticator: Authenticator) => {
     let users = readDb();
     let user = users.find(u => u.name === name);

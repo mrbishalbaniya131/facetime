@@ -62,7 +62,16 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
       try {
         const descriptor = await webcamRef.current.captureFace();
         if (descriptor) {
+          // Add to client-side storage
           addRegisteredUser({ name, descriptor, authenticators: [] });
+          
+          // Also add to server-side "DB"
+          await fetch('/api/register-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, descriptor }),
+          });
+
           toast({
             title: "Success",
             description: `${name}'s face has been registered.`,

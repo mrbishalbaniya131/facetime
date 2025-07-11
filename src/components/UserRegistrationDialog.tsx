@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -94,8 +95,12 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
     try {
         // Get challenge from server
         const respChallenge = await fetch(`/api/register-challenge?username=${name}`);
+        if (!respChallenge.ok) {
+            const errorText = await respChallenge.text();
+            throw new Error(errorText || 'Failed to get registration challenge from server.');
+        }
+
         const options = await respChallenge.json();
-        if(respChallenge.status !== 200) throw new Error(options.error);
         
         // Start registration with browser
         const regResp = await startRegistration(options);

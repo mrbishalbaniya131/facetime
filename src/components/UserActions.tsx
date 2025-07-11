@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -31,7 +32,7 @@ import { Label } from "@/components/ui/label";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import type { RegisteredUser } from "@/types";
 import { useToast } from "@/hooks/use-toast";
-import { deleteRegisteredUser, editRegisteredUser } from "@/lib/storage";
+import { editRegisteredUser } from "@/lib/storage";
 
 interface UserActionsProps {
   user: RegisteredUser;
@@ -57,12 +58,13 @@ export function UserActions({ user, onUserUpdate }: UserActionsProps) {
         throw new Error(errorData.error || "Failed to delete user on server.");
       }
       
-      deleteRegisteredUser(user.name);
+      // The server is the source of truth. We just need to tell the page to refetch.
+      onUserUpdate();
+
       toast({
         title: "Success",
         description: `User "${user.name}" has been deleted.`,
       });
-      onUserUpdate();
     } catch (error: any) {
       toast({
         title: "Error Deleting User",

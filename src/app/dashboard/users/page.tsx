@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/Header";
-import { getRegisteredUsers } from "@/lib/storage";
+import { getRegisteredUsers, addRegisteredUser } from "@/lib/storage";
 import type { RegisteredUser } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,9 +20,28 @@ export default function UsersPage() {
   const [users, setUsers] = useState<RegisteredUser[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
-  const fetchUsers = useCallback(() => {
-    const allUsers = getRegisteredUsers();
-    setUsers(allUsers);
+  // This function is now the single source of truth for fetching users.
+  // It syncs localStorage with the server's user-db.json on first load.
+  const syncAndFetchUsers = useCallback(async () => {
+    try {
+      const response = await fetch('/api/get-users'); // We'll create this new API route
+      if (!response.ok) {
+        throw new Error('Failed to fetch users from server');
+      }
+      const serverUsers = await response.json();
+      
+      // Update localStorage with the latest data from the server
+      localStorage.setItem("face-time-registered-users", JSON.stringify(serverUsers));
+      
+      setUsers(serverUsers);
+    } catch (error) {
+      console.error("Failed to sync users:", error);
+      // Fallback to localStorage if server fetch fails
+      const localUsers = getRegisteredUsers();
+      setUsers(localUsers);
+    } finally {
+        setDataLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -33,13 +52,13 @@ export default function UsersPage() {
   
   useEffect(() => {
     if(user) {
-        fetchUsers();
-        setDataLoading(false);
+        syncAndFetchUsers();
     }
-  }, [user, fetchUsers]);
+  }, [user, syncAndFetchUsers]);
 
   const handleUserUpdate = () => {
-    fetchUsers();
+    // Just re-run the sync and fetch to get the latest state
+    syncAndFetchUsers();
   }
 
   if (loading || !user || dataLoading) {

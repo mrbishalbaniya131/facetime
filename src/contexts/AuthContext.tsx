@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useState, useEffect, type ReactNode } from "react";
+import { ModelLoader } from "@/components/ModelLoader";
 
 interface User {
   username: string;
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout }}>
+      <ModelLoader />
       {children}
     </AuthContext.Provider>
   );

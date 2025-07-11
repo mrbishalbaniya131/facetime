@@ -2,7 +2,6 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from '@/contexts/AuthContext';
-import { ModelLoader } from '@/components/ModelLoader';
 
 export const metadata: Metadata = {
   title: 'FaceTime Attendance',
@@ -24,9 +23,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <AuthProvider>
-          <ModelLoader>
-            {children}
-          </ModelLoader>
+          {children}
           <Toaster />
         </AuthProvider>
       </body>

@@ -1,12 +1,19 @@
 "use client";
 
-import { useToast } from "@/hooks/use-toast";
-
 declare const faceapi: any;
 
+let modelsLoaded = false;
+
 export async function loadModels() {
-  const MODEL_URL = '/models';
+  if (modelsLoaded) {
+    console.log("Models already loaded.");
+    return;
+  }
+  
+  const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@0.22.2/models';
+  
   try {
+    console.log("Loading face-api models...");
     await Promise.all([
       faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
       faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
@@ -14,10 +21,10 @@ export async function loadModels() {
       faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
       faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
     ]);
+    modelsLoaded = true;
+    console.log("Face-api models loaded successfully.");
   } catch (error) {
     console.error("Error loading face-api models:", error);
-    // The useToast hook can't be used in a non-component function.
-    // We'll rely on console errors and component-level error handling.
     throw new Error("Failed to load face recognition models. Please check the console for details.");
   }
 }

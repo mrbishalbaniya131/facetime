@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from "react";
-import { loadModels } from "@/lib/face-api";
 import { getRegisteredUsers, addAttendanceLog, getAttendanceLog } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "./ui/skeleton";
@@ -23,7 +22,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
   const attendanceToday = useRef<Set<string>>(new Set());
 
   const setup = async () => {
-    await loadModels();
+    // Models are loaded in ModelLoader
     await startWebcam();
     loadFaceMatcher();
     loadTodaysAttendance();

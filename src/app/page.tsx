@@ -31,7 +31,7 @@ export default function Home() {
     let icon = <Bot className="h-4 w-4 text-primary shrink-0" />;
     if (thought.includes("Found best match")) {
       icon = <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />;
-    } else if (thought.includes("No match declared") || thought.includes("No potential matches")) {
+    } else if (thought.includes("No match declared") || thought.includes("No potential matches") || thought.includes("below the threshold")) {
       icon = <ShieldAlert className="h-4 w-4 text-yellow-500 shrink-0" />;
     }
     
@@ -104,5 +104,3 @@ export default function Home() {
     </div>
   );
 }
-
-    

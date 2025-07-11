@@ -25,7 +25,6 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isReady, setIsReady] = useState(false);
-  const [faceMatcher, setFaceMatcher] = useState<any>(null);
   const { toast } = useToast();
   const attendanceToday = useRef<Set<string>>(new Set());
   const [detectorOptions, setDetectorOptions] = useState<any>(null);
@@ -33,10 +32,30 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
   const processing = useRef(false);
 
+  useImperativeHandle(ref, () => ({
+    captureFace: async () => {
+      if (!videoRef.current) {
+        throw new Error("Webcam not ready.");
+      }
+      if (!detectorOptions) {
+        throw new Error("Face detector not initialized.");
+      }
+      const detection = await faceapi.detectSingleFace(videoRef.current, detectorOptions).withFaceLandmarks().withFaceDescriptor();
+      if (!detection) {
+        throw new Error("No face detected. Please position yourself in front of the camera.");
+      }
+      return Array.from(detection.descriptor);
+    },
+    reloadFaceMatcher: () => {
+      // This method is now a bit redundant with the AI flow, but kept for potential future use.
+      // The AI flow re-fetches users on every call, so it's always up-to-date.
+    }
+  }));
+
   useEffect(() => {
     // This ensures faceapi is defined before we use it.
     if (typeof faceapi !== 'undefined') {
-      setDetectorOptions(new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }));
+       setDetectorOptions(new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }));
     }
   }, []);
 
@@ -56,7 +75,6 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
   const setup = async () => {
     // Models are loaded globally in AuthProvider
     await startWebcam();
-    loadFaceMatcher();
     loadTodaysAttendance();
     setIsReady(true);
     resetInactivityTimer();
@@ -101,44 +119,6 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     }
   };
 
-  const loadFaceMatcher = () => {
-    const users: RegisteredUser[] = getRegisteredUsers();
-    if (users.length > 0) {
-      const labeledFaceDescriptors = users
-        .filter(user => user.descriptor && user.descriptor.length > 0)
-        .map(
-          (user) => new faceapi.LabeledFaceDescriptors(user.name, [new Float32Array(user.descriptor!)])
-        );
-      if (labeledFaceDescriptors.length > 0) {
-        const matcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5);
-        setFaceMatcher(matcher);
-      } else {
-        setFaceMatcher(null);
-      }
-    } else {
-        setFaceMatcher(null);
-    }
-  };
-
-  useImperativeHandle(ref, () => ({
-    captureFace: async () => {
-      if (!videoRef.current) {
-        throw new Error("Webcam not ready.");
-      }
-      if (!detectorOptions) {
-        throw new Error("Face detector not initialized.");
-      }
-      const detection = await faceapi.detectSingleFace(videoRef.current, detectorOptions).withFaceLandmarks().withFaceDescriptor();
-      if (!detection) {
-        throw new Error("No face detected. Please position yourself in front of the camera.");
-      }
-      return Array.from(detection.descriptor);
-    },
-    reloadFaceMatcher: () => {
-      loadFaceMatcher();
-    }
-  }));
-
   const onPlay = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -165,14 +145,22 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      if (faceMatcher) {
+      const users = getRegisteredUsers();
+      if (users.length > 0) {
         for (const detection of resizedDetections) {
           processing.current = true;
           try {
-            const registeredUserDescriptors = getRegisteredUsers()
+            const registeredUserDescriptors = users
               .filter(u => u.descriptor && u.descriptor.length > 0)
               .map(u => ({ userId: u.name, descriptor: u.descriptor! }));
             
+            if (registeredUserDescriptors.length === 0) {
+                const box = detection.detection.box;
+                const drawBox = new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' });
+                drawBox.draw(canvas);
+                continue; // Skip to next detection
+            }
+
             const aiInput: CompareDetectedFacesInput = {
               detectedFaceDescriptor: Array.from(detection.descriptor),
               registeredUserDescriptors,
@@ -241,4 +229,3 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
 });
 
 WebcamCapture.displayName = 'WebcamCapture';
-    

@@ -81,7 +81,7 @@ const compareDetectedFacesFlow = ai.defineFlow(
         thought += `\nFound best match: ${bestMatch.userId} with ${confidencePercent}% confidence. Match exceeds threshold of ${MATCH_THRESHOLD * 100}%.`;
         return { userId: bestMatch.userId, matchConfidence: bestMatch.matchConfidence, thought };
     } else {
-        if(bestMatch.userId) {
+        if(bestMatch.userId && bestMatch.matchConfidence > 0) {
             const confidencePercent = (bestMatch.matchConfidence * 100).toFixed(1);
             thought += `\nBest match is ${bestMatch.userId} with ${confidencePercent}% confidence, but it's below the ${MATCH_THRESHOLD * 100}% threshold. No match declared.`;
         } else {
@@ -91,5 +91,3 @@ const compareDetectedFacesFlow = ai.defineFlow(
     }
   }
 );
-
-    

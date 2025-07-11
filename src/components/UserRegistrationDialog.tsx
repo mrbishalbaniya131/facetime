@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,9 +14,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { addRegisteredUser } from "@/lib/storage";
+import { addRegisteredUser, addAuthenticatorToUser, getRegisteredUserByName } from "@/lib/storage";
 import type { WebcamCaptureRef } from "./WebcamCapture";
-import { UserPlus, Loader2 } from "lucide-react";
+import { UserPlus, Loader2, Fingerprint } from "lucide-react";
+import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
 
 interface UserRegistrationDialogProps {
   webcamRef: React.RefObject<WebcamCaptureRef>;
@@ -26,9 +27,15 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
   const [name, setName] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isWebAuthnLoading, setIsWebAuthnLoading] = useState(false);
+  const [isWebAuthnSupported, setIsWebAuthnSupported] = useState(false);
   const { toast } = useToast();
 
-  const handleRegister = async () => {
+  useEffect(() => {
+    setIsWebAuthnSupported(browserSupportsWebAuthn());
+  }, []);
+
+  const handleRegisterFace = async () => {
     if (!name) {
       toast({
         title: "Error",
@@ -37,21 +44,30 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
       });
       return;
     }
+    
+    // Check if user with this name already exists for face registration
+    if (getRegisteredUserByName(name)?.descriptor) {
+         toast({
+            title: "Face Already Registered",
+            description: "A face is already registered for this user.",
+            variant: "destructive",
+        });
+        return;
+    }
+
 
     if (webcamRef.current) {
       setIsLoading(true);
       try {
         const descriptor = await webcamRef.current.captureFace();
         if (descriptor) {
-          addRegisteredUser({ name, descriptor });
+          addRegisteredUser({ name, descriptor, authenticators: [] });
           toast({
             title: "Success",
-            description: `${name} has been registered.`,
+            description: `${name}'s face has been registered.`,
           });
-          // Reload face matcher in webcam component
           webcamRef.current.reloadFaceMatcher();
-          setName("");
-          setIsOpen(false);
+          // Keep dialog open to register fingerprint
         }
       } catch (error: any) {
         toast({
@@ -65,8 +81,68 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
     }
   };
 
+  const handleRegisterFingerprint = async () => {
+     if (!name) {
+      toast({
+        title: "Error",
+        description: "Please enter a name first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsWebAuthnLoading(true);
+    try {
+        // Get challenge from server
+        const respChallenge = await fetch(`/api/register-challenge?username=${name}`);
+        const options = await respChallenge.json();
+        if(respChallenge.status !== 200) throw new Error(options.error);
+        
+        // Start registration with browser
+        const regResp = await startRegistration(options);
+        
+        // Verify with server
+        const verificationResp = await fetch('/api/register-verify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: name,
+                regResp,
+            }),
+        });
+
+        const verificationJSON = await verificationResp.json();
+        
+        if (verificationJSON && verificationJSON.verified) {
+             addAuthenticatorToUser(name, verificationJSON.authenticator);
+             toast({
+                title: "Fingerprint Registered",
+                description: "You can now log in using your fingerprint.",
+             });
+        } else {
+            throw new Error(verificationJSON.error || 'Fingerprint verification failed.');
+        }
+    } catch (error: any) {
+        toast({
+            title: "Fingerprint Registration Failed",
+            description: error.message || "An unknown error occurred. Please try again.",
+            variant: "destructive",
+        });
+    } finally {
+        setIsWebAuthnLoading(false);
+    }
+  }
+
+  const userExists = getRegisteredUserByName(name);
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) {
+            setName(""); // Reset name on close
+        }
+    }}>
       <DialogTrigger asChild>
         <Button>
           <UserPlus className="mr-2 h-4 w-4" />
@@ -77,7 +153,7 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
         <DialogHeader>
           <DialogTitle>Register New User</DialogTitle>
           <DialogDescription>
-            Enter the user's name and capture their face. Make sure the user is clearly visible in the camera feed.
+            Enter name, then capture face and/or register a fingerprint.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -91,21 +167,38 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
               onChange={(e) => setName(e.target.value)}
               className="col-span-3"
               placeholder="e.g. Jane Doe"
-              disabled={isLoading}
+              disabled={isLoading || isWebAuthnLoading}
             />
           </div>
         </div>
-        <DialogFooter>
-          <Button onClick={handleRegister} disabled={isLoading}>
+        <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+          <Button onClick={handleRegisterFace} disabled={isLoading || !!userExists?.descriptor}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Please wait
+                Capturing...
               </>
             ) : (
-              "Capture and Register"
+             "Capture Face"
             )}
           </Button>
+
+          {isWebAuthnSupported && (
+            <Button onClick={handleRegisterFingerprint} variant="outline" disabled={isWebAuthnLoading || !userExists}>
+              {isWebAuthnLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Please wait
+                </>
+              ) : (
+                <>
+                <Fingerprint className="mr-2 h-4 w-4" />
+                Register Fingerprint
+                </>
+              )}
+            </Button>
+          )}
+
         </DialogFooter>
       </DialogContent>
     </Dialog>

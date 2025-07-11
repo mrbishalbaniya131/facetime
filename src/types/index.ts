@@ -1,6 +1,14 @@
+export interface Authenticator {
+  credentialID: string;
+  credentialPublicKey: number[];
+  counter: number;
+  transports?: AuthenticatorTransport[];
+}
+
 export interface RegisteredUser {
   name: string;
-  descriptor: number[];
+  descriptor?: number[];
+  authenticators: Authenticator[];
 }
 
 export interface AttendanceRecord {

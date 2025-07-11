@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { addRegisteredUser } from "@/lib/storage";
 import type { WebcamCaptureRef } from "./WebcamCapture";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Loader2 } from "lucide-react";
 
 interface UserRegistrationDialogProps {
   webcamRef: React.RefObject<WebcamCaptureRef>;
@@ -25,6 +25,7 @@ interface UserRegistrationDialogProps {
 export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProps) {
   const [name, setName] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleRegister = async () => {
@@ -38,6 +39,7 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
     }
 
     if (webcamRef.current) {
+      setIsLoading(true);
       try {
         const descriptor = await webcamRef.current.captureFace();
         if (descriptor) {
@@ -57,6 +59,8 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
           description: error.message || "Could not capture face. Please try again.",
           variant: "destructive",
         });
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -87,11 +91,21 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
               onChange={(e) => setName(e.target.value)}
               className="col-span-3"
               placeholder="e.g. Jane Doe"
+              disabled={isLoading}
             />
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleRegister}>Capture and Register</Button>
+          <Button onClick={handleRegister} disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Please wait
+              </>
+            ) : (
+              "Capture and Register"
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

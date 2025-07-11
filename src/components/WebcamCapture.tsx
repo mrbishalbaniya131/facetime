@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from "react";
@@ -5,6 +6,7 @@ import { getRegisteredUsers, addAttendanceLog, getAttendanceLog } from "@/lib/st
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "./ui/skeleton";
 import type { RegisteredUser } from "@/types";
+import { useAuth } from "@/hooks/useAuth";
 
 declare const faceapi: any;
 
@@ -12,6 +14,8 @@ export interface WebcamCaptureRef {
   captureFace: () => Promise<number[] | null>;
   reloadFaceMatcher: () => void;
 }
+
+const INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes
 
 export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -21,7 +25,21 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
   const { toast } = useToast();
   const attendanceToday = useRef<Set<string>>(new Set());
   const [detectorOptions] = useState(() => new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }));
+  const { logout } = useAuth();
+  const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
 
+  const resetInactivityTimer = () => {
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current);
+    }
+    inactivityTimer.current = setTimeout(() => {
+      toast({
+        title: "Session Expired",
+        description: "You have been logged out due to inactivity.",
+      });
+      logout();
+    }, INACTIVITY_TIMEOUT);
+  };
 
   const setup = async () => {
     // Models are loaded in ModelLoader
@@ -29,6 +47,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
     loadFaceMatcher();
     loadTodaysAttendance();
     setIsReady(true);
+    resetInactivityTimer();
   };
 
   const loadTodaysAttendance = () => {
@@ -44,6 +63,9 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach((track) => track.stop());
+      }
+       if (inactivityTimer.current) {
+        clearTimeout(inactivityTimer.current);
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -68,11 +90,15 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
   const loadFaceMatcher = () => {
     const users: RegisteredUser[] = getRegisteredUsers();
     if (users.length > 0) {
-      const labeledFaceDescriptors = users.map(
-        (user) => new faceapi.LabeledFaceDescriptors(user.name, [new Float32Array(user.descriptor)])
-      );
-      const matcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5);
-      setFaceMatcher(matcher);
+      const labeledFaceDescriptors = users
+        .filter(user => user.descriptor && user.descriptor.length > 0)
+        .map(
+          (user) => new faceapi.LabeledFaceDescriptors(user.name, [new Float32Array(user.descriptor!)])
+        );
+      if (labeledFaceDescriptors.length > 0) {
+        const matcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5);
+        setFaceMatcher(matcher);
+      }
     }
   };
 
@@ -108,6 +134,11 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
       }
       
       const detections = await faceapi.detectAllFaces(video, detectorOptions).withFaceLandmarks().withFaceDescriptors();
+      
+      if (detections.length > 0) {
+        resetInactivityTimer();
+      }
+
       const resizedDetections = faceapi.resizeResults(detections, displaySize);
       
       const ctx = canvas.getContext('2d');

@@ -73,15 +73,14 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
         const descriptor = await webcamRef.current.captureFace();
         if (descriptor) {
           const newUser = { name, descriptor, authenticators: existingUser?.authenticators || [] };
-          // Add to client-side storage
-          addRegisteredUser(newUser);
           
-          // Also add to server-side "DB"
           await fetch('/api/register-user', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name, descriptor }),
           });
+
+          addRegisteredUser(newUser);
 
           toast({
             title: "Success",
@@ -113,19 +112,20 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
     }
     setIsWebAuthnLoading(true);
     try {
-        // Ensure user exists on server before getting challenge
-        let existingUser = getRegisteredUserByName(name);
-        if (!existingUser) {
+        let userOnServer = getRegisteredUserByName(name);
+        if (!userOnServer) {
              const res = await fetch('/api/register-user', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, descriptor: null }), // Create user without descriptor
+                body: JSON.stringify({ name }),
             });
-            if (!res.ok) throw new Error("Failed to create user on server.");
+            if (!res.ok) {
+              const error = await res.json();
+              throw new Error(error.message || "Failed to create user on server.");
+            }
             addRegisteredUser({ name, authenticators: [] }); // Add to local storage as well
         }
 
-        // Get challenge from server
         const respChallenge = await fetch(`/api/register-challenge?username=${name}`);
         if (!respChallenge.ok) {
             const errorText = await respChallenge.text();
@@ -134,10 +134,8 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
 
         const options = await respChallenge.json();
         
-        // Start registration with browser
         const regResp = await startRegistration(options);
         
-        // Verify with server
         const verificationResp = await fetch('/api/register-verify', {
             method: 'POST',
             headers: {

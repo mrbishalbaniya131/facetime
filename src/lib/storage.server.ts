@@ -37,16 +37,16 @@ export const getRegisteredUserByName = (name: string): RegisteredUser | undefine
 
 export const addRegisteredUser = (newUser: RegisteredUser): void => {
   const users = readDb();
-  // Check if user exists, if so, update, otherwise add
   const userIndex = users.findIndex(u => u.name === newUser.name);
   if (userIndex > -1) {
-      // Preserve authenticators if they exist
+      // User exists, update their descriptor but preserve authenticators.
       const existingUser = users[userIndex];
-      users[userIndex] = { 
-        ...newUser,
-        authenticators: existingUser.authenticators || [],
-       };
+      users[userIndex] = {
+        ...existingUser, // Keep existing data like authenticators
+        ...newUser,      // Overwrite with new data like descriptor
+      };
   } else {
+      // User doesn't exist, add them.
       users.push(newUser);
   }
   writeDb(users);

@@ -53,8 +53,8 @@ export function UserActions({ user, onUserUpdate }: UserActionsProps) {
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to delete user on server.");
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to delete user on server.");
       }
       
       deleteRegisteredUser(user.name);

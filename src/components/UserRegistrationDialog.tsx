@@ -47,7 +47,8 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
     }
     
     // Check if user with this name already exists for face registration
-    if (getRegisteredUserByName(name)?.descriptor) {
+    const existingUser = getRegisteredUserByName(name);
+    if (existingUser && existingUser.descriptor && existingUser.descriptor.length > 0) {
          toast({
             title: "Face Already Registered",
             description: "A face is already registered for this user.",
@@ -55,7 +56,6 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
         });
         return;
     }
-
 
     if (webcamRef.current) {
       setIsLoading(true);
@@ -149,6 +149,7 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
   }
 
   const userExists = getRegisteredUserByName(name);
+  const faceRegistered = !!userExists?.descriptor && userExists.descriptor.length > 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -186,7 +187,7 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
           </div>
         </div>
         <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-          <Button onClick={handleRegisterFace} disabled={isLoading || !!userExists?.descriptor}>
+          <Button onClick={handleRegisterFace} disabled={isLoading || faceRegistered || !name}>
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

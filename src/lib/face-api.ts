@@ -33,7 +33,6 @@ export async function loadModels() {
             console.log("Loading face-api models...");
             const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
             await Promise.all([
-              faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
               faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
               faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
               faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),

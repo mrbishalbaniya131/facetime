@@ -20,6 +20,8 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
   const [faceMatcher, setFaceMatcher] = useState<any>(null);
   const { toast } = useToast();
   const attendanceToday = useRef<Set<string>>(new Set());
+  const [detectorOptions] = useState(() => new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }));
+
 
   const setup = async () => {
     // Models are loaded in ModelLoader
@@ -79,7 +81,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
       if (!videoRef.current) {
         throw new Error("Webcam not ready.");
       }
-      const detection = await faceapi.detectSingleFace(videoRef.current).withFaceLandmarks().withFaceDescriptor();
+      const detection = await faceapi.detectSingleFace(videoRef.current, detectorOptions).withFaceLandmarks().withFaceDescriptor();
       if (!detection) {
         throw new Error("No face detected. Please position yourself in front of the camera.");
       }
@@ -105,7 +107,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, {}>((props, ref) => {
         return;
       }
       
-      const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+      const detections = await faceapi.detectAllFaces(video, detectorOptions).withFaceLandmarks().withFaceDescriptors();
       const resizedDetections = faceapi.resizeResults(detections, displaySize);
       
       const ctx = canvas.getContext('2d');

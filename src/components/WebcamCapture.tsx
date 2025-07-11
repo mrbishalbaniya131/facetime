@@ -7,6 +7,7 @@ import { Skeleton } from "./ui/skeleton";
 import type { RegisteredUser } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
 import { compareDetectedFaces, type CompareDetectedFacesInput } from "@/ai/flows/compare-detected-faces";
+import { textToSpeech } from "@/ai/flows/text-to-speech";
 
 declare const faceapi: any;
 
@@ -17,6 +18,7 @@ export interface WebcamCaptureRef {
 
 interface WebcamCaptureProps {
   onNewThought?: (thought: string) => void;
+  onNewAudio?: (audioSrc: string) => void;
 }
 
 const INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes
@@ -182,10 +184,22 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
                 if (!attendanceToday.current.has(name)) {
                   attendanceToday.current.add(name);
                   addAttendanceLog({ name, timestamp: new Date().toISOString() });
+                  
+                  const toastMessage = `Welcome, ${name}! Your attendance has been recorded.`;
                   toast({
                     title: "Attendance Marked",
-                    description: `Welcome, ${name}! Your attendance has been recorded.`,
+                    description: toastMessage,
                   });
+
+                  // Generate and play voice alert
+                  if (props.onNewAudio) {
+                    try {
+                      const { audio } = await textToSpeech(toastMessage);
+                      props.onNewAudio(audio);
+                    } catch (ttsError) {
+                      console.error("Error generating TTS:", ttsError);
+                    }
+                  }
                 }
             } else {
                 drawBox = new faceapi.draw.DrawBox(box, { label: `Unknown`, boxColor: '#FF6347' });

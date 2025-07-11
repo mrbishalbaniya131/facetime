@@ -15,6 +15,9 @@ export default function Home() {
   const router = useRouter();
   const webcamRef = useRef<WebcamCaptureRef>(null);
   const [aiThoughts, setAiThoughts] = useState<string[]>([]);
+  const [audioSrc, setAudioSrc] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
 
   useEffect(() => {
     if (!loading && !user) {
@@ -22,9 +25,19 @@ export default function Home() {
     }
   }, [user, loading, router]);
 
+  useEffect(() => {
+    if (audioSrc && audioRef.current) {
+      audioRef.current.play().catch(e => console.error("Error playing audio:", e));
+    }
+  }, [audioSrc]);
+
   const handleNewThought = (thought: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setAiThoughts(prev => [`[${timestamp}] ${thought}`, ...prev].slice(0, 100)); // Keep last 100 thoughts
+  };
+
+  const handleNewAudio = (newAudioSrc: string) => {
+    setAudioSrc(newAudioSrc);
   };
 
   const renderThought = (thought: string) => {
@@ -68,7 +81,11 @@ export default function Home() {
               <CardTitle className="text-2xl font-headline">Attendance Camera</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-6">
-              <WebcamCapture ref={webcamRef} onNewThought={handleNewThought} />
+              <WebcamCapture 
+                ref={webcamRef} 
+                onNewThought={handleNewThought} 
+                onNewAudio={handleNewAudio}
+              />
             </CardContent>
           </Card>
           
@@ -101,6 +118,7 @@ export default function Home() {
           </Card>
         </div>
       </main>
+      {audioSrc && <audio ref={audioRef} src={audioSrc} />}
     </div>
   );
 }

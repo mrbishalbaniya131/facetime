@@ -10,7 +10,6 @@ import { analyzePerson, type AnalyzePersonInput, type AnalyzePersonOutput } from
 import { textToSpeech } from "@/ai/flows/text-to-speech";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { MapPin, AlertTriangle } from "lucide-react";
-import { loadSpoofModel, isSpoof } from "@/lib/spoof-detection";
 
 declare const faceapi: any;
 
@@ -129,7 +128,6 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
 
   const setup = async () => {
     await startWebcam();
-    await loadSpoofModel();
     loadTodaysAttendance();
     checkLocation();
     setIsReady(true);
@@ -219,8 +217,6 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
             const frameCtx = frameCanvas.getContext('2d');
             if(frameCtx) frameCtx.drawImage(video, 0, 0);
             const imageDataUri = frameCanvas.toDataURL('image/jpeg');
-            
-            const spoofResult = await isSpoof(video);
 
             const aiInput: AnalyzePersonInput = {
               imageDataUri,
@@ -228,19 +224,11 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
               registeredUserDescriptors,
               isLocationAuthorized: locationState.isAuthorized,
               expressions: detection.expressions || {},
-              isSpoof: spoofResult,
             };
 
             const result = await analyzePerson(aiInput);
             
             if (props.onNewAnalysis) props.onNewAnalysis(result);
-
-            if (spoofResult) {
-                const box = detection.detection.box;
-                const drawBox = new faceapi.draw.DrawBox(box, { label: 'Spoof Detected', boxColor: '#FF0000' });
-                drawBox.draw(canvas);
-                continue; // Skip further processing if spoof is detected
-            }
 
 
             if (result.audioSrc && props.onNewAudio) props.onNewAudio(result.audioSrc);

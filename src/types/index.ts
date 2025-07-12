@@ -14,4 +14,8 @@ export interface RegisteredUser {
 export interface AttendanceRecord {
   name: string;
   timestamp: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+  } | null;
 }

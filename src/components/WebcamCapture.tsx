@@ -8,8 +8,17 @@ import type { RegisteredUser } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
 import { analyzePerson, type AnalyzePersonInput, type AnalyzePersonOutput } from "@/ai/flows/compare-detected-faces";
 import { textToSpeech } from "@/ai/flows/text-to-speech";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { MapPin, AlertTriangle } from "lucide-react";
 
 declare const faceapi: any;
+
+// --- GEO-FENCE CONFIGURATION ---
+const AUTHORIZED_LOCATION = {
+  latitude: 37.422, // Example: Googleplex
+  longitude: -122.084,
+};
+const MAX_DISTANCE_METERS = 500; // 500 meters radius
 
 export interface WebcamCaptureRef {
   captureFace: () => Promise<number[] | null>;
@@ -33,29 +42,73 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
   const { logout } = useAuth();
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
   const processing = useRef(false);
+  const [locationState, setLocationState] = useState<{
+    hasPermission: boolean | null;
+    isAuthorized: boolean | null;
+    currentCoords: { latitude: number; longitude: number } | null;
+  }>({ hasPermission: null, isAuthorized: null, currentCoords: null });
+
+
+  // Haversine formula to calculate distance between two lat/lon points
+  const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371e3; // metres
+      const φ1 = lat1 * Math.PI/180;
+      const φ2 = lat2 * Math.PI/180;
+      const Δφ = (lat2-lat1) * Math.PI/180;
+      const Δλ = (lon2-lon1) * Math.PI/180;
+
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+      return R * c; // in metres
+  }
+
+  const checkLocation = () => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const distance = getDistanceInMeters(
+          latitude,
+          longitude,
+          AUTHORIZED_LOCATION.latitude,
+          AUTHORIZED_LOCATION.longitude
+        );
+        setLocationState({
+          hasPermission: true,
+          isAuthorized: distance <= MAX_DISTANCE_METERS,
+          currentCoords: { latitude, longitude },
+        });
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        setLocationState({ hasPermission: false, isAuthorized: false, currentCoords: null });
+        toast({
+          title: "Location Access Denied",
+          description: "Please enable location services to mark attendance.",
+          variant: "destructive",
+        });
+      },
+      { enableHighAccuracy: true }
+    );
+  };
 
   useImperativeHandle(ref, () => ({
     captureFace: async () => {
-      if (!videoRef.current) {
-        throw new Error("Webcam not ready.");
-      }
-      if (!detectorOptions) {
-        throw new Error("Face detector not initialized.");
-      }
+      if (!videoRef.current) throw new Error("Webcam not ready.");
+      if (!detectorOptions) throw new Error("Face detector not initialized.");
+      if(locationState.isAuthorized === false) throw new Error("Cannot capture face. You are outside the authorized location.");
+
       const detection = await faceapi.detectSingleFace(videoRef.current, detectorOptions).withFaceLandmarks().withFaceDescriptor();
-      if (!detection) {
-        throw new Error("No face detected. Please position yourself in front of the camera.");
-      }
+      if (!detection) throw new Error("No face detected. Please position yourself in front of the camera.");
+      
       return Array.from(detection.descriptor);
     },
-    reloadFaceMatcher: () => {
-      // This method is now a bit redundant with the AI flow, but kept for potential future use.
-      // The AI flow re-fetches users on every call, so it's always up-to-date.
-    }
+    reloadFaceMatcher: () => {}
   }));
 
   useEffect(() => {
-    // This ensures faceapi is defined before we use it.
     if (typeof faceapi !== 'undefined') {
        setDetectorOptions(new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }));
     }
@@ -75,9 +128,9 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
   };
 
   const setup = async () => {
-    // Models are loaded globally in AuthProvider
     await startWebcam();
     loadTodaysAttendance();
+    checkLocation();
     setIsReady(true);
     resetInactivityTimer();
   };
@@ -90,7 +143,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
   };
   
   useEffect(() => {
-    if (detectorOptions) { // Only run setup once detectorOptions is set
+    if (detectorOptions) {
         setup();
     }
     return () => {
@@ -131,15 +184,11 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     faceapi.matchDimensions(canvas, displaySize);
 
     const intervalId = setInterval(async () => {
-      if (!video || video.paused || video.ended || processing.current) {
-        return;
-      }
+      if (!video || video.paused || video.ended || processing.current) return;
       
       const detections = await faceapi.detectAllFaces(video, detectorOptions).withFaceLandmarks().withFaceDescriptors();
       
-      if (detections.length > 0) {
-        resetInactivityTimer();
-      }
+      if (detections.length > 0) resetInactivityTimer();
 
       const resizedDetections = faceapi.resizeResults(detections, displaySize);
       
@@ -160,33 +209,27 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
                 const box = detection.detection.box;
                 const drawBox = new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' });
                 drawBox.draw(canvas);
-                continue; // Skip to next detection
+                continue;
             }
 
-            // Capture the current frame as a data URI
             const frameCanvas = document.createElement('canvas');
             frameCanvas.width = video.videoWidth;
             frameCanvas.height = video.videoHeight;
             const frameCtx = frameCanvas.getContext('2d');
-            if(frameCtx) {
-              frameCtx.drawImage(video, 0, 0);
-            }
+            if(frameCtx) frameCtx.drawImage(video, 0, 0);
             const imageDataUri = frameCanvas.toDataURL('image/jpeg');
 
             const aiInput: AnalyzePersonInput = {
               imageDataUri,
               detectedFaceDescriptor: Array.from(detection.descriptor),
               registeredUserDescriptors,
+              isLocationAuthorized: locationState.isAuthorized
             };
 
             const result = await analyzePerson(aiInput);
 
-            if (props.onNewAnalysis) {
-                props.onNewAnalysis(result);
-            }
-            if (result.audioSrc && props.onNewAudio) {
-                props.onNewAudio(result.audioSrc);
-            }
+            if (props.onNewAnalysis) props.onNewAnalysis(result);
+            if (result.audioSrc && props.onNewAudio) props.onNewAudio(result.audioSrc);
 
             let box = detection.detection.box;
             let drawBox = new faceapi.draw.DrawBox(box, { boxColor: '#00CED1', label: 'Analyzing...' });
@@ -195,17 +238,16 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
                 const name = result.userId;
                 drawBox = new faceapi.draw.DrawBox(box, { label: `${name} (${(result.matchConfidence*100).toFixed(1)}%)`, boxColor: '#1E90FF' });
 
-                if (!attendanceToday.current.has(name)) {
+                if (!attendanceToday.current.has(name) && locationState.isAuthorized) {
                   attendanceToday.current.add(name);
-                  addAttendanceLog({ name, timestamp: new Date().toISOString() });
+                  addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords });
                   
-                  const toastMessage = `Welcome, ${name}! Your attendance has been recorded.`;
+                  const toastMessage = `Welcome, ${name}! Attendance recorded.`;
                   toast({
                     title: "Attendance Marked",
                     description: toastMessage,
                   });
 
-                  // Generate and play voice alert for attendance (separate from activity)
                   if (props.onNewAudio) {
                     try {
                       const { audio } = await textToSpeech(toastMessage);
@@ -234,24 +276,53 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
          });
       }
 
-    }, 3000); // Run every 3 seconds to not overload the AI and prevent audio overlap
+    }, 3000);
 
     return () => clearInterval(intervalId);
   };
 
 
   return (
-    <div className="relative w-full max-w-3xl aspect-video mx-auto flex items-center justify-center">
+    <div className="relative w-full max-w-3xl aspect-video mx-auto flex flex-col items-center justify-center gap-2">
       {!isReady && <Skeleton className="w-full h-full" />}
-      <video
-        ref={videoRef}
-        autoPlay
-        muted
-        onPlay={onPlay}
-        className={`rounded-lg transition-opacity duration-500 ${isReady ? "opacity-100" : "opacity-0"}`}
-        style={{ transform: "scaleX(-1)" }} // Mirror effect
-      />
-      <canvas ref={canvasRef} className="absolute top-0 left-0" />
+      <div className="relative w-full">
+        <video
+            ref={videoRef}
+            autoPlay
+            muted
+            onPlay={onPlay}
+            className={`rounded-lg transition-opacity duration-500 w-full ${isReady ? "opacity-100" : "opacity-0"}`}
+            style={{ transform: "scaleX(-1)" }}
+        />
+        <canvas ref={canvasRef} className="absolute top-0 left-0" />
+      </div>
+      {locationState.hasPermission === false && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Location Access Denied</AlertTitle>
+          <AlertDescription>
+            You must allow location access to mark attendance. Please check your browser settings.
+          </AlertDescription>
+        </Alert>
+      )}
+      {locationState.hasPermission && locationState.isAuthorized === false && (
+         <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Outside Authorized Area</AlertTitle>
+          <AlertDescription>
+            You are too far from the authorized location. Attendance marking is disabled.
+          </AlertDescription>
+        </Alert>
+      )}
+      {locationState.isAuthorized && (
+         <Alert variant="default" className="border-green-300 bg-green-50 text-green-800">
+            <MapPin className="h-4 w-4 text-green-600" />
+            <AlertTitle>Location Verified</AlertTitle>
+            <AlertDescription>
+                You are within the authorized area. Attendance is enabled.
+            </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 });

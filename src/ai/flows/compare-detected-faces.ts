@@ -24,6 +24,7 @@ const AnalyzePersonInputSchema = z.object({
     userId: z.string().describe('The ID of the registered user.'),
     descriptor: z.array(z.number()).describe('The face descriptor of the registered user.'),
   })).describe('An array of registered user IDs and their face descriptors.'),
+  isLocationAuthorized: z.boolean().nullable().describe('Whether the user is in an authorized location for attendance.'),
 });
 export type AnalyzePersonInput = z.infer<typeof AnalyzePersonInputSchema>;
 
@@ -77,6 +78,14 @@ const analyzePersonFlow = ai.defineFlow(
     }
     
     let thought = `Analyzing detected face. Comparing against ${input.registeredUserDescriptors.length} registered user(s).`;
+    if (input.isLocationAuthorized === true) {
+        thought += `\nLocation: Verified from authorized location.`;
+    } else if (input.isLocationAuthorized === false) {
+        thought += `\nLocation: Outside authorized area. Attendance will not be recorded.`;
+    } else {
+        thought += `\nLocation: Status unknown.`;
+    }
+
     let bestMatch: { userId: string; matchConfidence: number } = { userId: '', matchConfidence: 0 };
 
     for (const registeredUser of input.registeredUserDescriptors) {

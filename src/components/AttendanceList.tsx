@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { getAttendanceLog } from "@/lib/storage";
 import type { AttendanceRecord } from "@/types";
-import { User, Clock } from "lucide-react";
+import { User, Clock, MapPin } from "lucide-react";
 
 export default function AttendanceList() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -50,6 +50,12 @@ export default function AttendanceList() {
                 Timestamp
               </div>
             </TableHead>
+            <TableHead>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Location
+              </div>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -58,11 +64,17 @@ export default function AttendanceList() {
               <TableRow key={index}>
                 <TableCell className="font-medium">{record.name}</TableCell>
                 <TableCell>{new Date(record.timestamp).toLocaleString()}</TableCell>
+                <TableCell>
+                  {record.location 
+                    ? `${record.location.latitude.toFixed(3)}, ${record.location.longitude.toFixed(3)}`
+                    : "N/A"
+                  }
+                </TableCell>
               </TableRow>
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={2} className="text-center h-24">
+              <TableCell colSpan={3} className="text-center h-24">
                 No attendance records found for today.
               </TableCell>
             </TableRow>

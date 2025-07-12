@@ -8,7 +8,7 @@ import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, CheckCircle, ShieldAlert, Activity } from "lucide-react";
+import { Bot, CheckCircle, ShieldAlert, Activity, MapPin } from "lucide-react";
 import type { AnalyzePersonOutput } from "@/ai/flows/compare-detected-faces";
 
 interface AiLog {
@@ -61,12 +61,24 @@ export default function Home() {
       icon = <ShieldAlert className="h-4 w-4 text-yellow-500 shrink-0" />;
     }
     
+    // Split thoughts by newline to render them separately
+    const thoughtLines = log.thought.split('\n');
+
     return (
        <div className="flex flex-col gap-2">
-          <div className="flex items-start gap-3">
-            {icon}
-            <p className="text-xs text-muted-foreground break-words whitespace-pre-wrap">{log.thought}</p>
-          </div>
+          {thoughtLines.map((line, index) => {
+              let lineIcon = icon;
+              if (line.includes("Location:")) {
+                  lineIcon = <MapPin className="h-4 w-4 text-indigo-500 shrink-0" />
+              }
+              return (
+                <div key={index} className="flex items-start gap-3">
+                  {lineIcon}
+                  <p className="text-xs text-muted-foreground break-words whitespace-pre-wrap">{line}</p>
+                </div>
+              )
+            })
+          }
           {log.activity && (
              <div className="flex items-start gap-3 pl-1">
                 <Activity className="h-4 w-4 text-blue-500 shrink-0" />
@@ -119,11 +131,11 @@ export default function Home() {
                 <CardDescription>Real-time analysis from the recognition AI.</CardDescription>
             </CardHeader>
             <CardContent>
-                <ScrollArea className="h-96 w-full pr-4">
+                <ScrollArea className="h-[500px] w-full pr-4">
                     <div className="space-y-4">
                         {aiLogs.length > 0 ? (
                             aiLogs.map((log) => (
-                                <div key={log.id} className="flex flex-col">
+                                <div key={log.id} className="flex flex-col border-b pb-2 mb-2">
                                   <span className="text-xs font-mono text-muted-foreground/50">{log.timestamp}</span>
                                   {renderLog(log)}
                                 </div>

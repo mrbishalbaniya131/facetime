@@ -83,7 +83,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       },
       (error) => {
         console.error("Geolocation error:", error);
-        setLocationState({ hasPermission: false, isAuthorized: false, currentCoords: null });
+        setLocationState({ hasPermission: false, isAuthorized: null, currentCoords: null });
         toast({
           title: "Location Access Denied",
           description: "Location is optional, but recommended for verified attendance.",
@@ -98,9 +98,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     captureFace: async () => {
       if (!videoRef.current) throw new Error("Webcam not ready.");
       if (!detectorOptions) throw new Error("Face detector not initialized.");
-      // We no longer throw an error here to allow registration from any location
-      // if(locationState.isAuthorized === false) throw new Error("Cannot capture face. You are outside the authorized location.");
-
+      
       const detection = await faceapi.detectSingleFace(videoRef.current, detectorOptions).withFaceLandmarks().withFaceDescriptor();
       if (!detection) throw new Error("No face detected. Please position yourself in front of the camera.");
       

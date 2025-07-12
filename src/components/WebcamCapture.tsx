@@ -9,16 +9,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { analyzePerson, type AnalyzePersonInput, type AnalyzePersonOutput } from "@/ai/flows/compare-detected-faces";
 import { textToSpeech } from "@/ai/flows/text-to-speech";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { MapPin, AlertTriangle } from "lucide-react";
+import { MapPin, AlertTriangle, ShieldAlert } from "lucide-react";
 
 declare const faceapi: any;
 
-// --- GEO-FENCE CONFIGURATION ---
 const AUTHORIZED_LOCATION = {
-  latitude: 37.422, // Example: Googleplex
+  latitude: 37.422,
   longitude: -122.084,
 };
-const MAX_DISTANCE_METERS = 500; // 500 meters radius
+const MAX_DISTANCE_METERS = 500;
 
 export interface WebcamCaptureRef {
   captureFace: () => Promise<number[] | null>;
@@ -30,7 +29,7 @@ interface WebcamCaptureProps {
   onNewAudio?: (audioSrc: string) => void;
 }
 
-const INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes
+const INACTIVITY_TIMEOUT = 2 * 60 * 1000;
 
 export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((props, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -48,24 +47,26 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     currentCoords: { latitude: number; longitude: number } | null;
   }>({ hasPermission: null, isAuthorized: null, currentCoords: null });
 
-
-  // Haversine formula to calculate distance between two lat/lon points
   const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-      const R = 6371e3; // metres
-      const φ1 = lat1 * Math.PI/180;
-      const φ2 = lat2 * Math.PI/180;
-      const Δφ = (lat2-lat1) * Math.PI/180;
-      const Δλ = (lon2-lon1) * Math.PI/180;
+    const R = 6371e3;
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ/2) * Math.sin(Δλ/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-      return R * c; // in metres
+    return R * c;
   }
 
   const checkLocation = () => {
+    if (!navigator.geolocation) {
+       setLocationState({ hasPermission: false, isAuthorized: null, currentCoords: null });
+       return;
+    }
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
@@ -198,6 +199,11 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       const users = getRegisteredUsers();
       if (users.length > 0) {
         for (const detection of resizedDetections) {
+          
+          if (!detection || !detection.expressions) {
+            continue; // Skip if expressions are not available for this frame
+          }
+
           processing.current = true;
           try {
             const registeredUserDescriptors = users
@@ -217,10 +223,11 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
             const frameCtx = frameCanvas.getContext('2d');
             if(frameCtx) frameCtx.drawImage(video, 0, 0);
             const imageDataUri = frameCanvas.toDataURL('image/jpeg');
-
-            const expressions = (detection.expressions && typeof detection.expressions === 'object' && Object.keys(detection.expressions).length > 0)
-              ? detection.expressions
+            
+            const expressions = (typeof detection.expressions === 'object' && Object.keys(detection.expressions).length > 0) 
+              ? detection.expressions 
               : {};
+
 
             const aiInput: AnalyzePersonInput = {
               imageDataUri,
@@ -242,7 +249,8 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
 
             if (result.userId && result.matchConfidence) {
                 const name = result.userId;
-                drawBox = new faceapi.draw.DrawBox(box, { label: `${name} (${(result.matchConfidence*100).toFixed(1)}%)`, boxColor: '#1E90FF' });
+                const label = `${name} (${(result.matchConfidence*100).toFixed(1)}%)`
+                drawBox = new faceapi.draw.DrawBox(box, { label, boxColor: '#1E90FF' });
 
                 if (!attendanceToday.current.has(name)) {
                   attendanceToday.current.add(name);
@@ -264,7 +272,9 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
                   }
                 }
             } else {
-                drawBox = new faceapi.draw.DrawBox(box, { label: `Unknown`, boxColor: '#FF6347' });
+                 const label = `Unknown`;
+                 const boxColor = '#FF6347';
+                 drawBox = new faceapi.draw.DrawBox(box, { label, boxColor });
             }
             drawBox.draw(canvas);
 

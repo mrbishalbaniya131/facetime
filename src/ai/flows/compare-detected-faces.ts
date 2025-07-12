@@ -46,16 +46,10 @@ export async function analyzePerson(input: AnalyzePersonInput): Promise<AnalyzeP
 const prompt = ai.definePrompt({
     name: 'analyzePersonPrompt',
     input: {schema: AnalyzePersonInputSchema},
-    output: {schema: z.object({ activityDescription: AnalyzePersonOutputSchema.shape.activityDescription, mood: AnalyzePersonOutputSchema.shape.mood }) },
-    prompt: `You are a security AI. Analyze the person in the image.
-1. Concisely describe the person's activity. Do not greet or use conversational filler.
-2. Based on the facial expression data, determine the person's dominant mood.
+    output: {schema: z.object({ activityDescription: AnalyzePersonOutputSchema.shape.activityDescription }) },
+    prompt: `You are a security AI. Analyze the person in the image and provide a concise description of their activity. Do not greet or use conversational filler.
 
 Image: {{media url=imageDataUri}}
-Facial Expressions Detected:
-{{#each expressions}}
-- {{ @key }}: {{ this }}
-{{/each}}
 `,
 });
 
@@ -99,12 +93,26 @@ const analyzePersonFlow = ai.defineFlow(
       }
     }
     
+    const getDominantExpression = (expressions: Record<string, number>): string | undefined => {
+        if (!expressions || Object.keys(expressions).length === 0) return undefined;
+        let dominantExpression = 'neutral';
+        let maxConfidence = 0.5; // Start with a neutral threshold
+        for (const [expression, confidence] of Object.entries(expressions)) {
+            if (confidence > maxConfidence) {
+                maxConfidence = confidence;
+                dominantExpression = expression;
+            }
+        }
+        return dominantExpression;
+    };
+    const mood = getDominantExpression(input.expressions);
+    
     // Call the LLM to get the activity description
     const { output } = await prompt(input);
     if (!output) {
       throw new Error("Failed to get a response from the AI model.");
     }
-    const { activityDescription, mood } = output;
+    const { activityDescription } = output;
 
     let audioSrc: string | undefined = undefined;
     if (activityDescription) {

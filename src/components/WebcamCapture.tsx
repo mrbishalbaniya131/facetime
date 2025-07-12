@@ -179,6 +179,22 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     }
   };
 
+  const getDominantExpression = (expressions: Record<string, number>): string | undefined => {
+    if (!expressions || typeof expressions !== 'object' || Object.keys(expressions).length === 0) {
+        return undefined;
+    }
+    let dominantExpression = 'neutral';
+    let maxConfidence = 0.5; // Start with a neutral threshold
+    for (const [expression, confidence] of Object.entries(expressions)) {
+        if (confidence > maxConfidence) {
+            maxConfidence = confidence;
+            dominantExpression = expression;
+        }
+    }
+    return dominantExpression;
+  };
+
+
   const onPlay = () => {
     if (!modelsLoaded) return;
 
@@ -224,6 +240,8 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
           if (!detection || !detection.descriptor) {
             continue; 
           }
+
+          const mood = getDominantExpression(detection.expressions);
           
           const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
           const box = detection.detection.box;
@@ -231,7 +249,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
           
           if(bestMatch.label !== 'unknown' && attendanceToday.current.has(bestMatch.label)) {
               if (props.onNewAnalysis) {
-                props.onNewAnalysis({ thought: `${bestMatch.label} (Attended)` });
+                props.onNewAnalysis({ thought: `${bestMatch.label} (Attended)`, mood });
               }
               drawBox = new faceapi.draw.DrawBox(box, { label: `${bestMatch.label} (Attended)`, boxColor: 'green' });
               drawBox.draw(canvas);
@@ -303,6 +321,9 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
                  const label = `Unknown`;
                  const boxColor = '#FF6347';
                  drawBox = new faceapi.draw.DrawBox(box, { label, boxColor });
+                 if (props.onNewAnalysis) {
+                    props.onNewAnalysis({ thought: 'Unknown person detected.', mood });
+                 }
             }
             drawBox.draw(canvas);
 

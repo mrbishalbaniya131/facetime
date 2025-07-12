@@ -32,7 +32,7 @@ export type AnalyzePersonInput = z.infer<typeof AnalyzePersonInputSchema>;
 const AnalyzePersonOutputSchema = z.object({
   userId: z.string().optional().describe('The ID of the matched user, if any.'),
   matchConfidence: z.number().optional().describe('The confidence of the face match (0-1), if any.'),
-  activityDescription: z.string().describe("A description of the person's activity in the image."),
+  activityDescription: z.string().optional().describe("A description of the person's activity in the image."),
   thought: z.string().describe('The thought process of the AI.'),
   audioSrc: z.string().optional().describe('Base64 encoded WAV audio of the activity description.'),
   mood: z.string().optional().describe('The dominant mood detected from facial expressions.'),

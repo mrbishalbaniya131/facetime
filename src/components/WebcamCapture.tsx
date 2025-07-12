@@ -230,7 +230,9 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
           let drawBox = new faceapi.draw.DrawBox(box, { label: bestMatch.toString(), boxColor: '#00CED1' });
           
           if(bestMatch.label !== 'unknown' && attendanceToday.current.has(bestMatch.label)) {
-              // User already marked, just draw the box and skip AI call
+              if (props.onNewAnalysis) {
+                props.onNewAnalysis({ thought: `${bestMatch.label} (Attended)` });
+              }
               drawBox = new faceapi.draw.DrawBox(box, { label: `${bestMatch.label} (Attended)`, boxColor: 'green' });
               drawBox.draw(canvas);
               continue; // Skip to next detection
@@ -255,7 +257,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
             if(frameCtx) frameCtx.drawImage(video, 0, 0);
             const imageDataUri = frameCanvas.toDataURL('image/jpeg');
             
-            const expressions = (typeof detection.expressions === 'object' && Object.keys(detection.expressions).length > 0) 
+            const expressions = (detection.expressions && typeof detection.expressions === 'object' && Object.keys(detection.expressions).length > 0) 
               ? detection.expressions 
               : {};
             

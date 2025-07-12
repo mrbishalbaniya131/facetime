@@ -10,7 +10,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 import { textToSpeech } from './text-to-speech';
 
 const AnalyzePersonInputSchema = z.object({
@@ -25,17 +25,15 @@ const AnalyzePersonInputSchema = z.object({
     descriptor: z.array(z.number()).describe('The face descriptor of the registered user.'),
   })).describe('An array of registered user IDs and their face descriptors.'),
   isLocationAuthorized: z.boolean().nullable().describe('Whether the user is in an authorized location for attendance.'),
-  expressions: z.record(z.number()).describe('A map of detected facial expressions and their confidence scores (0-1).'),
 });
 export type AnalyzePersonInput = z.infer<typeof AnalyzePersonInputSchema>;
 
 const AnalyzePersonOutputSchema = z.object({
   userId: z.string().optional().describe('The ID of the matched user, if any.'),
   matchConfidence: z.number().optional().describe('The confidence of the face match (0-1), if any.'),
-  activityDescription: z.string().describe("A description of the person's activity and mood in the image."),
+  activityDescription: z.string().describe("A description of the person's activity in the image."),
   thought: z.string().describe('The thought process of the AI.'),
   audioSrc: z.string().optional().describe('Base64 encoded WAV audio of the activity description.'),
-  mood: z.string().optional().describe("The primary detected mood of the person."),
 });
 export type AnalyzePersonOutput = z.infer<typeof AnalyzePersonOutputSchema>;
 
@@ -47,13 +45,7 @@ const prompt = ai.definePrompt({
     name: 'analyzePersonPrompt',
     input: {schema: AnalyzePersonInputSchema},
     output: {schema: z.object({ activityDescription: AnalyzePersonOutputSchema.shape.activityDescription }) }, // Only need activity from LLM
-    prompt: `You are a security AI. Describe the person's activity and mood in a short, concise sentence.
-Base the mood on the most prominent facial expression provided. Do not greet or use conversational filler.
-
-Detected Expressions:
-{{#each expressions}}
-- {{@key}}: {{this}}
-{{/each}}
+    prompt: `You are a security AI. Describe the person's activity in a short, concise sentence. Do not greet or use conversational filler.
 
 Image: {{media url=imageDataUri}}
 `,
@@ -67,7 +59,7 @@ const analyzePersonFlow = ai.defineFlow(
     outputSchema: AnalyzePersonOutputSchema,
   },
   async input => {
-    // Face comparison logic remains the same
+    // Face comparison logic
     function cosineSimilarity(descriptor1: number[], descriptor2: number[]): number {
       if (descriptor1.length !== descriptor2.length || descriptor1.length === 0) { return 0; }
       let dotProduct = 0; let magnitude1 = 0; let magnitude2 = 0;
@@ -99,13 +91,7 @@ const analyzePersonFlow = ai.defineFlow(
       }
     }
     
-    const primaryMood = Object.keys(input.expressions).length > 0
-        ? Object.keys(input.expressions).reduce((a, b) => input.expressions[a] > input.expressions[b] ? a : b, 'neutral')
-        : 'neutral';
-        
-    thought += `\nPrimary mood detected: ${primaryMood}.`;
-
-    // Now, call the LLM to get the activity description and consolidate the thought process
+    // Call the LLM to get the activity description
     const { output } = await prompt(input);
     if (!output) {
       throw new Error("Failed to get a response from the AI model.");
@@ -127,7 +113,7 @@ const analyzePersonFlow = ai.defineFlow(
     if (bestMatch.matchConfidence > MATCH_THRESHOLD) {
         const confidencePercent = (bestMatch.matchConfidence * 100).toFixed(1);
         thought += `\nFound best match: ${bestMatch.userId} with ${confidencePercent}% confidence. Match exceeds threshold of ${MATCH_THRESHOLD * 100}%.`;
-        return { userId: bestMatch.userId, matchConfidence: bestMatch.matchConfidence, thought, activityDescription, audioSrc, mood: primaryMood };
+        return { userId: bestMatch.userId, matchConfidence: bestMatch.matchConfidence, thought, activityDescription, audioSrc };
     } else {
         if(bestMatch.userId && bestMatch.matchConfidence > 0) {
             const confidencePercent = (bestMatch.matchConfidence * 100).toFixed(1);
@@ -135,7 +121,7 @@ const analyzePersonFlow = ai.defineFlow(
         } else {
             thought += `\nNo potential matches found.`;
         }
-        return { thought, activityDescription, audioSrc, mood: primaryMood };
+        return { thought, activityDescription, audioSrc };
     }
   }
 );

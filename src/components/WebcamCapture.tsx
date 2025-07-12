@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { analyzePerson, type AnalyzePersonInput, type AnalyzePersonOutput } from "@/ai/flows/compare-detected-faces";
 import { textToSpeech } from "@/ai/flows/text-to-speech";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { MapPin, AlertTriangle, ShieldAlert } from "lucide-react";
+import { MapPin, AlertTriangle } from "lucide-react";
 import { loadModels } from "@/lib/face-api";
 
 
@@ -191,9 +191,9 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     faceapi.matchDimensions(canvas, displaySize);
 
     const intervalId = setInterval(async () => {
-      if (!video || video.paused || video.ended || processing.current) return;
+      if (!video || video.paused || video.ended || !modelsLoaded || processing.current) return;
       
-      const detections = await faceapi.detectAllFaces(video, detectorOptions).withFaceLandmarks().withFaceExpressions().withFaceDescriptors();
+      const detections = await faceapi.detectAllFaces(video, detectorOptions).withFaceLandmarks().withFaceDescriptors();
       
       if (detections.length > 0) resetInactivityTimer();
 
@@ -231,17 +231,11 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
             if(frameCtx) frameCtx.drawImage(video, 0, 0);
             const imageDataUri = frameCanvas.toDataURL('image/jpeg');
             
-            const expressions = detection.expressions && typeof detection.expressions === 'object' && !Array.isArray(detection.expressions)
-              ? detection.expressions 
-              : {};
-
-
             const aiInput: AnalyzePersonInput = {
               imageDataUri,
               detectedFaceDescriptor: Array.from(detection.descriptor),
               registeredUserDescriptors,
               isLocationAuthorized: locationState.isAuthorized,
-              expressions,
             };
 
             const result = await analyzePerson(aiInput);
@@ -261,7 +255,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
 
                 if (!attendanceToday.current.has(name)) {
                   attendanceToday.current.add(name);
-                  addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords, mood: result.mood });
+                  addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords });
                   
                   const toastMessage = `Welcome, ${name}! Attendance recorded.`;
                   toast({

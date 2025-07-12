@@ -47,7 +47,7 @@ const prompt = ai.definePrompt({
     name: 'analyzePersonPrompt',
     input: {schema: AnalyzePersonInputSchema},
     output: {schema: z.object({ activityDescription: AnalyzePersonOutputSchema.shape.activityDescription }) },
-    prompt: `You are a security AI. Analyze the person in the image and provide a concise description of their activity. Do not greet or use conversational filler.
+    prompt: `You are a security AI. Analyze the person in the image. Provide a detailed description of their activity, including their body position and posture. Be concise but descriptive. Do not greet or use conversational filler.
 
 Image: {{media url=imageDataUri}}
 `,

@@ -193,7 +193,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     const intervalId = setInterval(async () => {
       if (!video || video.paused || video.ended || !modelsLoaded || processing.current) return;
       
-      const detections = await faceapi.detectAllFaces(video, detectorOptions).withFaceLandmarks().withFaceDescriptors();
+      const detections = await faceapi.detectAllFaces(video, detectorOptions).withFaceLandmarks().withFaceExpressions().withFaceDescriptors();
       
       if (detections.length > 0) resetInactivityTimer();
 
@@ -205,10 +205,35 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       
       const users = getRegisteredUsers();
       if (users.length > 0) {
+        const labeledDescriptors = users
+            .filter(u => u.descriptor && u.descriptor.length > 0)
+            .map(u => new faceapi.LabeledFaceDescriptors(u.name, [Float32Array.from(u.descriptor!)]));
+        
+        if(labeledDescriptors.length === 0) {
+             resizedDetections.forEach((detection: any) => {
+                const box = detection.detection.box;
+                new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' }).draw(canvas);
+             });
+             return; // No registered faces to match against
+        }
+        
+        const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
+
         for (const detection of resizedDetections) {
           
           if (!detection || !detection.descriptor) {
             continue; 
+          }
+          
+          const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+          const box = detection.detection.box;
+          let drawBox = new faceapi.draw.DrawBox(box, { label: bestMatch.toString(), boxColor: '#00CED1' });
+          
+          if(bestMatch.label !== 'unknown' && attendanceToday.current.has(bestMatch.label)) {
+              // User already marked, just draw the box and skip AI call
+              drawBox = new faceapi.draw.DrawBox(box, { label: `${bestMatch.label} (Attended)`, boxColor: 'green' });
+              drawBox.draw(canvas);
+              continue; // Skip to next detection
           }
 
           processing.current = true;
@@ -219,8 +244,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
             
             if (registeredUserDescriptors.length === 0) {
                 const box = detection.detection.box;
-                const drawBox = new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' });
-                drawBox.draw(canvas);
+                new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' }).draw(canvas);
                 continue;
             }
 
@@ -231,23 +255,24 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
             if(frameCtx) frameCtx.drawImage(video, 0, 0);
             const imageDataUri = frameCanvas.toDataURL('image/jpeg');
             
+            const expressions = (typeof detection.expressions === 'object' && Object.keys(detection.expressions).length > 0) 
+              ? detection.expressions 
+              : {};
+            
             const aiInput: AnalyzePersonInput = {
               imageDataUri,
               detectedFaceDescriptor: Array.from(detection.descriptor),
               registeredUserDescriptors,
               isLocationAuthorized: locationState.isAuthorized,
+              expressions,
             };
 
             const result = await analyzePerson(aiInput);
             
             if (props.onNewAnalysis) props.onNewAnalysis(result);
 
-
             if (result.audioSrc && props.onNewAudio) props.onNewAudio(result.audioSrc);
-
-            let box = detection.detection.box;
-            let drawBox = new faceapi.draw.DrawBox(box, { boxColor: '#00CED1', label: 'Analyzing...' });
-
+            
             if (result.userId && result.matchConfidence) {
                 const name = result.userId;
                 const label = `${name} (${(result.matchConfidence*100).toFixed(1)}%)`
@@ -255,7 +280,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
 
                 if (!attendanceToday.current.has(name)) {
                   attendanceToday.current.add(name);
-                  addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords });
+                  addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords, mood: result.mood });
                   
                   const toastMessage = `Welcome, ${name}! Attendance recorded.`;
                   toast({
@@ -288,8 +313,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       } else {
          resizedDetections.forEach((detection: any) => {
             const box = detection.detection.box;
-            const drawBox = new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' });
-            drawBox.draw(canvas);
+            new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' }).draw(canvas);
          });
       }
 

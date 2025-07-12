@@ -8,13 +8,14 @@ import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, CheckCircle, ShieldAlert, Activity, MapPin } from "lucide-react";
+import { Bot, CheckCircle, ShieldAlert, Activity, MapPin, Smile } from "lucide-react";
 import type { AnalyzePersonOutput } from "@/ai/flows/compare-detected-faces";
 
 interface AiLog {
   id: number;
   thought: string;
   activity?: string;
+  mood?: string;
   timestamp: string;
 }
 
@@ -44,6 +45,7 @@ export default function Home() {
       id: Date.now(),
       thought: analysis.thought,
       activity: analysis.activityDescription,
+      mood: analysis.mood,
       timestamp: new Date().toLocaleTimeString(),
     };
     setAiLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
@@ -61,7 +63,6 @@ export default function Home() {
       icon = <ShieldAlert className="h-4 w-4 text-yellow-500 shrink-0" />;
     }
     
-    // Split thoughts by newline to render them separately
     const thoughtLines = log.thought.split('\n');
 
     return (
@@ -83,6 +84,12 @@ export default function Home() {
              <div className="flex items-start gap-3 pl-1">
                 <Activity className="h-4 w-4 text-blue-500 shrink-0" />
                 <p className="text-xs font-semibold text-muted-foreground break-words whitespace-pre-wrap">{log.activity}</p>
+             </div>
+          )}
+          {log.mood && (
+             <div className="flex items-start gap-3 pl-1">
+                <Smile className="h-4 w-4 text-purple-500 shrink-0" />
+                <p className="text-xs font-semibold text-muted-foreground break-words whitespace-pre-wrap">Mood: {log.mood}</p>
              </div>
           )}
        </div>
@@ -107,37 +114,34 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header webcamRef={webcamRef} />
-      <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
-        <div className="text-left mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold leading-tight tracking-tight">FaceTime Attendance</h1>
-            <p className="text-muted-foreground mt-2">Real-time attendance and activity monitoring during your FaceTime calls.</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full max-w-7xl mx-auto">
-          <div className="lg:col-span-2">
-            <h3 className="text-lg font-bold leading-tight tracking-tight mb-2">Live Feed</h3>
-            <Card className="shadow-lg">
-                <CardHeader>
-                <CardTitle className="text-2xl font-headline">Attendance Camera</CardTitle>
+      <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8 lg:grid lg:grid-cols-3 lg:gap-8">
+        <div className="lg:col-span-2">
+          <div className="text-left mb-8">
+              <h1 className="text-2xl md:text-3xl font-bold leading-tight tracking-tight font-headline">FaceTime Attendance</h1>
+              <p className="text-muted-foreground mt-2">Real-time attendance and activity monitoring during your FaceTime calls.</p>
+          </div>
+          <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-2xl font-headline">Live Feed</CardTitle>
                 <CardDescription>The system is actively scanning for faces.</CardDescription>
-                </CardHeader>
-                <CardContent>
+              </CardHeader>
+              <CardContent>
                 <WebcamCapture 
                     ref={webcamRef} 
                     onNewAnalysis={handleNewAnalysis} 
                     onNewAudio={handleNewAudio}
                 />
-                </CardContent>
-            </Card>
-          </div>
-          
-          <div className="lg:col-span-1">
-             <h3 className="text-lg font-bold leading-tight tracking-tight mb-2">AI Activity Log</h3>
+              </CardContent>
+          </Card>
+        </div>
+        
+        <div className="lg:col-span-1 mt-8 lg:mt-0">
+          <div className="sticky top-20">
             <Card className="shadow-lg">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Bot className="h-6 w-6" />
-                        <span className="font-headline">Activity Log</span>
+                        <span className="font-headline">AI Activity Log</span>
                     </CardTitle>
                     <CardDescription>Real-time analysis from the recognition AI.</CardDescription>
                 </CardHeader>

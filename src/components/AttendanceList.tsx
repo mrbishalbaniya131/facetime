@@ -4,14 +4,13 @@ import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { getAttendanceLog } from "@/lib/storage";
 import type { AttendanceRecord } from "@/types";
-import { User, Clock, MapPin } from "lucide-react";
+import { User, Clock, MapPin, Smile } from "lucide-react";
 
 export default function AttendanceList() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
     const log = getAttendanceLog();
-    // Sort by most recent first
     log.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     setAttendance(log);
 
@@ -22,8 +21,6 @@ export default function AttendanceList() {
     };
 
     window.addEventListener('storage', handleStorageChange);
-
-    // Refresh on focus to catch updates from other tabs
     window.addEventListener('focus', handleStorageChange);
 
     return () => {
@@ -50,6 +47,12 @@ export default function AttendanceList() {
                 Timestamp
               </div>
             </TableHead>
+             <TableHead>
+              <div className="flex items-center gap-2">
+                <Smile className="h-4 w-4" />
+                Mood
+              </div>
+            </TableHead>
             <TableHead>
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
@@ -60,10 +63,11 @@ export default function AttendanceList() {
         </TableHeader>
         <TableBody>
           {attendance.length > 0 ? (
-            attendance.slice(0, 5).map((record, index) => ( // Show recent 5
+            attendance.slice(0, 5).map((record, index) => (
               <TableRow key={index}>
                 <TableCell className="font-medium">{record.name}</TableCell>
                 <TableCell>{new Date(record.timestamp).toLocaleString()}</TableCell>
+                 <TableCell>{record.mood || "N/A"}</TableCell>
                 <TableCell>
                   {record.location 
                     ? `${record.location.latitude.toFixed(3)}, ${record.location.longitude.toFixed(3)}`
@@ -74,7 +78,7 @@ export default function AttendanceList() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={3} className="text-center h-24">
+              <TableCell colSpan={4} className="text-center h-24">
                 No attendance records found for today.
               </TableCell>
             </TableRow>

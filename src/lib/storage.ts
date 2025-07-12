@@ -89,10 +89,14 @@ export const getAttendanceLog = (): AttendanceRecord[] => {
   }
 };
 
-export const addAttendanceLog = (newRecord: AttendanceRecord): void => {
+export const addAttendanceLog = (newRecord: Omit<AttendanceRecord, 'id'>): void => {
   if (typeof window === "undefined") return;
   const log = getAttendanceLog();
-  log.push(newRecord);
+  const recordWithId: AttendanceRecord = {
+      ...newRecord,
+      id: `att-${Date.now()}-${Math.random()}`
+  }
+  log.push(recordWithId);
   try {
     localStorage.setItem(LOG_KEY, JSON.stringify(log));
      window.dispatchEvent(new Event('storage'));
@@ -100,3 +104,15 @@ export const addAttendanceLog = (newRecord: AttendanceRecord): void => {
     console.error("Error saving attendance record to localStorage", error);
   }
 };
+
+export const deleteAttendanceRecord = (recordId: string): void => {
+    if (typeof window === "undefined") return;
+    let log = getAttendanceLog();
+    log = log.filter(record => record.id !== recordId);
+    try {
+        localStorage.setItem(LOG_KEY, JSON.stringify(log));
+        window.dispatchEvent(new Event('storage'));
+    } catch (error) {
+        console.error("Error deleting attendance record from localStorage", error);
+    }
+}

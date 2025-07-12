@@ -12,12 +12,12 @@ export interface RegisteredUser {
 }
 
 export interface AttendanceRecord {
+  id: string;
   name: string;
   timestamp: string;
   location?: {
     latitude: number;
     longitude: number;
   } | null;
-  mood?: string;
-  method?: 'Face' | 'Fingerprint' | 'Two-Factor';
+  method?: 'Face' | 'Two-Factor';
 }

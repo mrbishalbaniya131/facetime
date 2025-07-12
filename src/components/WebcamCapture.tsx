@@ -187,7 +187,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     const intervalId = setInterval(async () => {
       if (!video || video.paused || video.ended || processing.current) return;
       
-      const detections = await faceapi.detectAllFaces(video, detectorOptions).withFaceLandmarks().withFaceDescriptors();
+      const detections = await faceapi.detectAllFaces(video, detectorOptions).withFaceLandmarks().withFaceExpressions().withFaceDescriptors();
       
       if (detections.length > 0) resetInactivityTimer();
 
@@ -224,7 +224,8 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
               imageDataUri,
               detectedFaceDescriptor: Array.from(detection.descriptor),
               registeredUserDescriptors,
-              isLocationAuthorized: locationState.isAuthorized
+              isLocationAuthorized: locationState.isAuthorized,
+              expressions: detection.expressions || {}
             };
 
             const result = await analyzePerson(aiInput);
@@ -241,7 +242,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
 
                 if (!attendanceToday.current.has(name)) {
                   attendanceToday.current.add(name);
-                  addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords });
+                  addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords, mood: result.mood });
                   
                   const toastMessage = `Welcome, ${name}! Attendance recorded.`;
                   toast({

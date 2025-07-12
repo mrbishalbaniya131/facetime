@@ -18,4 +18,5 @@ export interface AttendanceRecord {
     latitude: number;
     longitude: number;
   } | null;
+  mood?: string;
 }

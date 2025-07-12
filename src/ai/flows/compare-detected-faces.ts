@@ -25,15 +25,17 @@ const AnalyzePersonInputSchema = z.object({
     descriptor: z.array(z.number()).describe('The face descriptor of the registered user.'),
   })).describe('An array of registered user IDs and their face descriptors.'),
   isLocationAuthorized: z.boolean().nullable().describe('Whether the user is in an authorized location for attendance.'),
+  expressions: z.record(z.number()).describe('A map of detected facial expressions and their confidence scores (0-1).'),
 });
 export type AnalyzePersonInput = z.infer<typeof AnalyzePersonInputSchema>;
 
 const AnalyzePersonOutputSchema = z.object({
   userId: z.string().optional().describe('The ID of the matched user, if any.'),
   matchConfidence: z.number().optional().describe('The confidence of the face match (0-1), if any.'),
-  activityDescription: z.string().describe("A description of the person's activity in the image."),
+  activityDescription: z.string().describe("A description of the person's activity and mood in the image."),
   thought: z.string().describe('The thought process of the AI.'),
   audioSrc: z.string().optional().describe('Base64 encoded WAV audio of the activity description.'),
+  mood: z.string().optional().describe("The primary detected mood of the person."),
 });
 export type AnalyzePersonOutput = z.infer<typeof AnalyzePersonOutputSchema>;
 
@@ -45,8 +47,13 @@ const prompt = ai.definePrompt({
     name: 'analyzePersonPrompt',
     input: {schema: AnalyzePersonInputSchema},
     output: {schema: z.object({ activityDescription: AnalyzePersonOutputSchema.shape.activityDescription }) }, // Only need activity from LLM
-    prompt: `You are a security AI. Describe the person's activity in the image in a short, concise sentence.
-Do not greet or use conversational filler.
+    prompt: `You are a security AI. Describe the person's activity and mood in a short, concise sentence.
+Base the mood on the most prominent facial expression provided. Do not greet or use conversational filler.
+
+Detected Expressions:
+{{#each expressions}}
+- {{@key}}: {{this}}
+{{/each}}
 
 Image: {{media url=imageDataUri}}
 `,
@@ -91,6 +98,9 @@ const analyzePersonFlow = ai.defineFlow(
         bestMatch = { userId: registeredUser.userId, matchConfidence: similarity };
       }
     }
+    
+    const primaryMood = Object.keys(input.expressions).reduce((a, b) => input.expressions[a] > input.expressions[b] ? a : b, 'neutral');
+    thought += `\nPrimary mood detected: ${primaryMood}.`;
 
     // Now, call the LLM to get the activity description and consolidate the thought process
     const { output } = await prompt(input);
@@ -114,7 +124,7 @@ const analyzePersonFlow = ai.defineFlow(
     if (bestMatch.matchConfidence > MATCH_THRESHOLD) {
         const confidencePercent = (bestMatch.matchConfidence * 100).toFixed(1);
         thought += `\nFound best match: ${bestMatch.userId} with ${confidencePercent}% confidence. Match exceeds threshold of ${MATCH_THRESHOLD * 100}%.`;
-        return { userId: bestMatch.userId, matchConfidence: bestMatch.matchConfidence, thought, activityDescription, audioSrc };
+        return { userId: bestMatch.userId, matchConfidence: bestMatch.matchConfidence, thought, activityDescription, audioSrc, mood: primaryMood };
     } else {
         if(bestMatch.userId && bestMatch.matchConfidence > 0) {
             const confidencePercent = (bestMatch.matchConfidence * 100).toFixed(1);
@@ -122,7 +132,7 @@ const analyzePersonFlow = ai.defineFlow(
         } else {
             thought += `\nNo potential matches found.`;
         }
-        return { thought, activityDescription, audioSrc };
+        return { thought, activityDescription, audioSrc, mood: primaryMood };
     }
   }
 );

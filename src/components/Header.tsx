@@ -52,7 +52,7 @@ export default function Header({ webcamRef }: HeaderProps) {
               )}
             >
               <link.icon className="h-4 w-4" />
-              {link.label}
+              <span className="hidden md:inline-block">{link.label}</span>
             </Link>
           ))}
         </nav>
@@ -63,7 +63,7 @@ export default function Header({ webcamRef }: HeaderProps) {
             )}
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
-              Logout
+              <span className="hidden md:inline">Logout</span>
             </Button>
         </div>
       </div>

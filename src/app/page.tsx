@@ -107,49 +107,60 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header webcamRef={webcamRef} />
-      <main className="flex-grow p-4 sm:p-6 md:p-8">
+      <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
+        <div className="text-left mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold leading-tight tracking-tight">FaceTime Attendance</h1>
+            <p className="text-muted-foreground mt-2">Real-time attendance and activity monitoring during your FaceTime calls.</p>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full max-w-7xl mx-auto">
-          <Card className="lg:col-span-2 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-2xl font-headline">Attendance Camera</CardTitle>
-              <CardDescription>The system is actively scanning for faces.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <WebcamCapture 
-                ref={webcamRef} 
-                onNewAnalysis={handleNewAnalysis} 
-                onNewAudio={handleNewAudio}
-              />
-            </CardContent>
-          </Card>
+          <div className="lg:col-span-2">
+            <h3 className="text-lg font-bold leading-tight tracking-tight mb-2">Live Feed</h3>
+            <Card className="shadow-lg">
+                <CardHeader>
+                <CardTitle className="text-2xl font-headline">Attendance Camera</CardTitle>
+                <CardDescription>The system is actively scanning for faces.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                <WebcamCapture 
+                    ref={webcamRef} 
+                    onNewAnalysis={handleNewAnalysis} 
+                    onNewAudio={handleNewAudio}
+                />
+                </CardContent>
+            </Card>
+          </div>
           
-          <Card className="shadow-lg">
-             <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Bot className="h-6 w-6" />
-                    <span className="font-headline">AI Activity Log</span>
-                </CardTitle>
-                <CardDescription>Real-time analysis from the recognition AI.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ScrollArea className="h-[500px] w-full pr-4">
-                    <div className="space-y-4">
-                        {aiLogs.length > 0 ? (
-                            aiLogs.map((log) => (
-                                <div key={log.id} className="flex flex-col border-b pb-2 mb-2">
-                                  <span className="text-xs font-mono text-muted-foreground/50">{log.timestamp}</span>
-                                  {renderLog(log)}
+          <div className="lg:col-span-1">
+             <h3 className="text-lg font-bold leading-tight tracking-tight mb-2">AI Activity Log</h3>
+            <Card className="shadow-lg">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Bot className="h-6 w-6" />
+                        <span className="font-headline">Activity Log</span>
+                    </CardTitle>
+                    <CardDescription>Real-time analysis from the recognition AI.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ScrollArea className="h-[500px] w-full pr-4">
+                        <div className="space-y-4">
+                            {aiLogs.length > 0 ? (
+                                aiLogs.map((log) => (
+                                    <div key={log.id} className="flex flex-col border-b pb-2 mb-2">
+                                    <span className="text-xs font-mono text-muted-foreground/50">{log.timestamp}</span>
+                                    {renderLog(log)}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                                    Waiting for activity...
                                 </div>
-                            ))
-                        ) : (
-                            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                                Waiting for activity...
-                            </div>
-                        )}
-                    </div>
-                </ScrollArea>
-            </CardContent>
-          </Card>
+                            )}
+                        </div>
+                    </ScrollArea>
+                </CardContent>
+            </Card>
+          </div>
         </div>
       </main>
       {audioSrc && (

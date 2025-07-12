@@ -10,6 +10,8 @@ import { analyzePerson, type AnalyzePersonInput, type AnalyzePersonOutput } from
 import { textToSpeech } from "@/ai/flows/text-to-speech";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { MapPin, AlertTriangle, ShieldAlert } from "lucide-react";
+import { loadModels } from "@/lib/face-api";
+
 
 declare const faceapi: any;
 
@@ -35,6 +37,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isReady, setIsReady] = useState(false);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   const { toast } = useToast();
   const attendanceToday = useRef<Set<string>>(new Set());
   const [detectorOptions, setDetectorOptions] = useState<any>(null);
@@ -107,13 +110,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     },
     reloadFaceMatcher: () => {}
   }));
-
-  useEffect(() => {
-    if (typeof faceapi !== 'undefined') {
-       setDetectorOptions(new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }));
-    }
-  }, []);
-
+  
   const resetInactivityTimer = () => {
     if (inactivityTimer.current) {
       clearTimeout(inactivityTimer.current);
@@ -126,15 +123,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       logout();
     }, INACTIVITY_TIMEOUT);
   };
-
-  const setup = async () => {
-    await startWebcam();
-    loadTodaysAttendance();
-    checkLocation();
-    setIsReady(true);
-    resetInactivityTimer();
-  };
-
+  
   const loadTodaysAttendance = () => {
     const today = new Date().toISOString().split('T')[0];
     const allLogs = getAttendanceLog();
@@ -143,9 +132,19 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
   };
   
   useEffect(() => {
-    if (detectorOptions) {
-        setup();
-    }
+    const setup = async () => {
+      await loadModels();
+      setModelsLoaded(true);
+      
+      await startWebcam();
+      loadTodaysAttendance();
+      checkLocation();
+      setIsReady(true);
+      resetInactivityTimer();
+    };
+    
+    setup();
+
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
@@ -156,7 +155,13 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detectorOptions]);
+  }, []);
+
+  useEffect(() => {
+    if (modelsLoaded && typeof faceapi !== 'undefined') {
+       setDetectorOptions(new faceapi.TinyFaceDetectorOptions({ inputSize: 320 }));
+    }
+  }, [modelsLoaded]);
 
   const startWebcam = async () => {
     try {
@@ -175,6 +180,8 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
   };
 
   const onPlay = () => {
+    if (!modelsLoaded) return;
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
@@ -200,8 +207,8 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       if (users.length > 0) {
         for (const detection of resizedDetections) {
           
-          if (!detection || !detection.expressions) {
-            continue; // Skip if expressions are not available for this frame
+          if (!detection || !detection.expressions || Object.keys(detection.expressions).length === 0) {
+            continue; 
           }
 
           processing.current = true;

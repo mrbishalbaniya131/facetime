@@ -207,7 +207,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       if (users.length > 0) {
         for (const detection of resizedDetections) {
           
-          if (!detection || !detection.expressions || Object.keys(detection.expressions).length === 0) {
+          if (!detection || !detection.descriptor) {
             continue; 
           }
 
@@ -231,7 +231,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
             if(frameCtx) frameCtx.drawImage(video, 0, 0);
             const imageDataUri = frameCanvas.toDataURL('image/jpeg');
             
-            const expressions = (typeof detection.expressions === 'object' && Object.keys(detection.expressions).length > 0) 
+            const expressions = detection.expressions && typeof detection.expressions === 'object' && !Array.isArray(detection.expressions)
               ? detection.expressions 
               : {};
 

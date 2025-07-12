@@ -8,7 +8,7 @@ import AttendanceList from "@/components/AttendanceList";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAttendanceLog, getRegisteredUsers } from "@/lib/storage";
 import { Users, Check, X, Percent } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AttendanceSummaryCard, type SummaryStat } from "@/components/AttendanceSummaryCard";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { ChartConfig, ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
@@ -135,6 +135,7 @@ export default function DashboardPage() {
             <Card className="lg:col-span-4">
                 <CardHeader>
                     <CardTitle>Recent Attendance</CardTitle>
+                    <CardDescription>A log of the last 5 attendance check-ins.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                     <AttendanceList />
@@ -142,7 +143,8 @@ export default function DashboardPage() {
             </Card>
             <Card className="lg:col-span-3">
                 <CardHeader>
-                    <CardTitle>Attendance Trends (Last 7 Days)</CardTitle>
+                    <CardTitle>Attendance Trends</CardTitle>
+                    <CardDescription>A summary of attendance over the last 7 days.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {statsLoading ? (

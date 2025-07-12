@@ -107,13 +107,14 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header webcamRef={webcamRef} />
-      <main className="flex-grow flex flex-col items-center justify-center p-4 sm:p-6 md:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full max-w-7xl">
+      <main className="flex-grow p-4 sm:p-6 md:p-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full max-w-7xl mx-auto">
           <Card className="lg:col-span-2 shadow-lg">
-            <CardHeader className="text-center">
+            <CardHeader>
               <CardTitle className="text-2xl font-headline">Attendance Camera</CardTitle>
+              <CardDescription>The system is actively scanning for faces.</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col items-center gap-6">
+            <CardContent>
               <WebcamCapture 
                 ref={webcamRef} 
                 onNewAnalysis={handleNewAnalysis} 

@@ -115,12 +115,13 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-background">
-       <div className="absolute top-4 left-4 flex items-center gap-2 text-foreground font-bold text-lg">
-        <Eye className="h-6 w-6 text-primary" />
-        <span className="font-headline">FaceTime Attendance</span>
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-br from-background to-blue-50">
+       <div className="flex flex-col items-center gap-4 mb-8 text-center">
+        <Eye className="h-12 w-12 text-primary" />
+        <h1 className="text-4xl font-bold font-headline text-foreground">FaceTime Attendance</h1>
+        <p className="text-muted-foreground">Smart attendance using face recognition.</p>
       </div>
-      <Card className="w-full max-w-sm shadow-2xl">
+      <Card className="w-full max-w-sm shadow-2xl border-2 border-primary/10">
         <CardHeader>
           <CardTitle className="text-2xl font-headline">Admin Login</CardTitle>
           <CardDescription>Enter your credentials to access the system.</CardDescription>

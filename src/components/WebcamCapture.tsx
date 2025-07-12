@@ -6,12 +6,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "./ui/skeleton";
 import type { RegisteredUser } from "@/types";
 import { useAuth } from "@/hooks/useAuth";
-import { analyzePerson, type AnalyzePersonInput, type AnalyzePersonOutput } from "@/ai/flows/compare-detected-faces";
+import { analyzePerson, type AnalyzePersonOutput } from "@/ai/flows/compare-detected-faces";
 import { textToSpeech } from "@/ai/flows/text-to-speech";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { MapPin, AlertTriangle } from "lucide-react";
 import { loadModels } from "@/lib/face-api";
-
 
 declare const faceapi: any;
 
@@ -21,14 +20,23 @@ const AUTHORIZED_LOCATION = {
 };
 const MAX_DISTANCE_METERS = 500;
 
+export interface TwoFactorChallenge {
+  user: RegisteredUser;
+  location: { latitude: number; longitude: number; } | null;
+  mood?: string;
+}
+
 export interface WebcamCaptureRef {
   captureFace: () => Promise<number[] | null>;
   reloadFaceMatcher: () => void;
+  markTwoFactorAttendance: (name: string) => void;
 }
 
 interface WebcamCaptureProps {
   onNewAnalysis?: (analysis: AnalyzePersonOutput) => void;
   onNewAudio?: (audioSrc: string) => void;
+  onTwoFactorChallenge?: (challenge: TwoFactorChallenge) => void;
+  isSecureMode: boolean;
 }
 
 const INACTIVITY_TIMEOUT = 2 * 60 * 1000;
@@ -97,6 +105,16 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       { enableHighAccuracy: true }
     );
   };
+  
+  const markAttendance = (name: string, method: 'Face' | 'Two-Factor') => {
+      const mood = "N/A"; 
+      if (!attendanceToday.current.has(name)) {
+        attendanceToday.current.add(name);
+        addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords, mood, method });
+        const toastMessage = `Welcome, ${name}! Attendance recorded via ${method}.`;
+        toast({ title: "Attendance Marked", description: toastMessage });
+      }
+  }
 
   useImperativeHandle(ref, () => ({
     captureFace: async () => {
@@ -108,7 +126,8 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       
       return Array.from(detection.descriptor);
     },
-    reloadFaceMatcher: () => {}
+    reloadFaceMatcher: () => {},
+    markTwoFactorAttendance: (name: string) => markAttendance(name, 'Two-Factor')
   }));
   
   const resetInactivityTimer = () => {
@@ -131,11 +150,26 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     attendanceToday.current = new Set(todaysLogs.map(log => log.name));
   };
   
+  const startWebcam = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Webcam Error",
+        description: "Could not access webcam. Please allow camera permissions.",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     const setup = async () => {
       await loadModels();
       setModelsLoaded(true);
-      
       await startWebcam();
       loadTodaysAttendance();
       checkLocation();
@@ -163,37 +197,20 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     }
   }, [modelsLoaded]);
 
-  const startWebcam = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.error(err);
-      toast({
-        title: "Webcam Error",
-        description: "Could not access webcam. Please allow camera permissions.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const getDominantExpression = (expressions: Record<string, number>): string | undefined => {
-    if (!expressions || typeof expressions !== 'object' || Object.keys(expressions).length === 0) {
-        return undefined;
+  const getDominantExpression = (expressions: any): string | undefined => {
+      if (!expressions || typeof expressions !== 'object' || Object.keys(expressions).length === 0) {
+        return 'neutral';
     }
     let dominantExpression = 'neutral';
     let maxConfidence = 0.5; // Start with a neutral threshold
     for (const [expression, confidence] of Object.entries(expressions)) {
-        if (confidence > maxConfidence) {
+        if (typeof confidence === 'number' && confidence > maxConfidence) {
             maxConfidence = confidence;
             dominantExpression = expression;
         }
     }
     return dominantExpression;
   };
-
 
   const onPlay = () => {
     if (!modelsLoaded) return;
@@ -207,139 +224,94 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     faceapi.matchDimensions(canvas, displaySize);
 
     const intervalId = setInterval(async () => {
-      if (!video || video.paused || video.ended || !modelsLoaded || processing.current) return;
+      if (processing.current || !video || video.paused || video.ended) return;
       
       const detections = await faceapi.detectAllFaces(video, detectorOptions).withFaceLandmarks().withFaceExpressions().withFaceDescriptors();
       
       if (detections.length > 0) resetInactivityTimer();
 
       const resizedDetections = faceapi.resizeResults(detections, displaySize);
-      
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       const users = getRegisteredUsers();
-      if (users.length > 0) {
-        const labeledDescriptors = users
-            .filter(u => u.descriptor && u.descriptor.length > 0)
-            .map(u => new faceapi.LabeledFaceDescriptors(u.name, [Float32Array.from(u.descriptor!)]));
-        
-        if(labeledDescriptors.length === 0) {
-             resizedDetections.forEach((detection: any) => {
-                const box = detection.detection.box;
-                new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' }).draw(canvas);
-             });
-             return; // No registered faces to match against
-        }
-        
-        const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
-
-        for (const detection of resizedDetections) {
-          
-          if (!detection || !detection.descriptor) {
-            continue; 
-          }
-
-          const mood = getDominantExpression(detection.expressions);
-          
-          const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+      if (users.length === 0) {
+        resizedDetections.forEach((detection: any) => {
           const box = detection.detection.box;
-          let drawBox = new faceapi.draw.DrawBox(box, { label: bestMatch.toString(), boxColor: '#00CED1' });
-          
-          if(bestMatch.label !== 'unknown' && attendanceToday.current.has(bestMatch.label)) {
-              if (props.onNewAnalysis) {
-                props.onNewAnalysis({ thought: `${bestMatch.label} (Attended)`, mood });
-              }
-              drawBox = new faceapi.draw.DrawBox(box, { label: `${bestMatch.label} (Attended)`, boxColor: 'green' });
-              drawBox.draw(canvas);
-              continue; // Skip to next detection
-          }
+          new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' }).draw(canvas);
+        });
+        return;
+      }
+      
+      const labeledDescriptors = users
+          .filter(u => u.descriptor && u.descriptor.length > 0)
+          .map(u => new faceapi.LabeledFaceDescriptors(u.name, [Float32Array.from(u.descriptor!)]));
+      
+      if(labeledDescriptors.length === 0) return;
+      
+      const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
 
+      for (const detection of resizedDetections) {
+        const box = detection.detection.box;
+        const mood = getDominantExpression(detection.expressions);
+        const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+        
+        if (attendanceToday.current.has(bestMatch.label)) {
+            if (props.onNewAnalysis) {
+              props.onNewAnalysis({ thought: `${bestMatch.label} (Attended)`, mood });
+            }
+            const drawBox = new faceapi.draw.DrawBox(box, { label: `${bestMatch.label} (Attended)`, boxColor: 'green' });
+            drawBox.draw(canvas);
+            continue;
+        }
+
+        if (bestMatch.label !== 'unknown' && !props.isSecureMode) {
+          markAttendance(bestMatch.label, 'Face');
+          const drawBox = new faceapi.draw.DrawBox(box, { label: `${bestMatch.label} (Attended)`, boxColor: 'green' });
+          drawBox.draw(canvas);
+        } else if (bestMatch.label !== 'unknown' && props.isSecureMode) {
+            const user = users.find(u => u.name === bestMatch.label);
+            if (user && user.authenticators && user.authenticators.length > 0 && props.onTwoFactorChallenge) {
+                processing.current = true; // Pause detection
+                props.onTwoFactorChallenge({ user, location: locationState.currentCoords, mood });
+            } else {
+                 if (props.onNewAnalysis) props.onNewAnalysis({ thought: `${bestMatch.label} has no fingerprint registered. Cannot use Secure Mode.` });
+                 const drawBox = new faceapi.draw.DrawBox(box, { label: `${bestMatch.label} (No Fingerprint)`, boxColor: 'red' });
+                 drawBox.draw(canvas);
+            }
+        } else {
+          // AI analysis for unknown faces or when not in secure mode
           processing.current = true;
           try {
-            const registeredUserDescriptors = users
-              .filter(u => u.descriptor && u.descriptor.length > 0)
-              .map(u => ({ userId: u.name, descriptor: u.descriptor! }));
-            
-            if (registeredUserDescriptors.length === 0) {
-                const box = detection.detection.box;
-                new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' }).draw(canvas);
-                continue;
-            }
+             const frameCanvas = document.createElement('canvas');
+              frameCanvas.width = video.videoWidth;
+              frameCanvas.height = video.videoHeight;
+              const frameCtx = frameCanvas.getContext('2d');
+              if(frameCtx) frameCtx.drawImage(video, 0, 0);
+              const imageDataUri = frameCanvas.toDataURL('image/jpeg');
 
-            const frameCanvas = document.createElement('canvas');
-            frameCanvas.width = video.videoWidth;
-            frameCanvas.height = video.videoHeight;
-            const frameCtx = frameCanvas.getContext('2d');
-            if(frameCtx) frameCtx.drawImage(video, 0, 0);
-            const imageDataUri = frameCanvas.toDataURL('image/jpeg');
-            
-            const expressions = (detection.expressions && typeof detection.expressions === 'object' && Object.keys(detection.expressions).length > 0) 
-              ? detection.expressions 
-              : {};
-            
-            const aiInput: AnalyzePersonInput = {
-              imageDataUri,
-              detectedFaceDescriptor: Array.from(detection.descriptor),
-              registeredUserDescriptors,
-              isLocationAuthorized: locationState.isAuthorized,
-              expressions,
-            };
+              const result = await analyzePerson({
+                imageDataUri,
+                detectedFaceDescriptor: Array.from(detection.descriptor),
+                isLocationAuthorized: locationState.isAuthorized
+              });
 
-            const result = await analyzePerson(aiInput);
-            
-            if (props.onNewAnalysis) props.onNewAnalysis(result);
+              if (props.onNewAnalysis) props.onNewAnalysis({...result, mood});
+              if (result.audioSrc && props.onNewAudio) props.onNewAudio(result.audioSrc);
 
-            if (result.audioSrc && props.onNewAudio) props.onNewAudio(result.audioSrc);
-            
-            if (result.userId && result.matchConfidence) {
-                const name = result.userId;
-                const label = `${name} (${(result.matchConfidence*100).toFixed(1)}%)`
-                drawBox = new faceapi.draw.DrawBox(box, { label, boxColor: '#1E90FF' });
-
-                if (!attendanceToday.current.has(name)) {
-                  attendanceToday.current.add(name);
-                  addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords, mood: result.mood });
-                  
-                  const toastMessage = `Welcome, ${name}! Attendance recorded.`;
-                  toast({
-                    title: "Attendance Marked",
-                    description: toastMessage,
-                  });
-
-                  if (props.onNewAudio) {
-                    try {
-                      const { audio } = await textToSpeech(toastMessage);
-                      props.onNewAudio(audio);
-                    } catch (ttsError) {
-                      console.error("Error generating TTS for attendance:", ttsError);
-                    }
-                  }
-                }
-            } else {
-                 const label = `Unknown`;
-                 const boxColor = '#FF6347';
-                 drawBox = new faceapi.draw.DrawBox(box, { label, boxColor });
-                 if (props.onNewAnalysis) {
-                    props.onNewAnalysis({ thought: 'Unknown person detected.', mood });
-                 }
-            }
-            drawBox.draw(canvas);
+              const label = result.userId ? `${result.userId} (${(result.matchConfidence!*100).toFixed(1)}%)` : 'Unknown';
+              const boxColor = result.userId ? '#1E90FF' : '#FF6347';
+              const drawBox = new faceapi.draw.DrawBox(box, { label, boxColor });
+              drawBox.draw(canvas);
 
           } catch (error) {
-             console.error("Error during face analysis flow:", error);
+              console.error("Error during face analysis:", error);
           } finally {
-            processing.current = false;
+              processing.current = false;
           }
         }
-      } else {
-         resizedDetections.forEach((detection: any) => {
-            const box = detection.detection.box;
-            new faceapi.draw.DrawBox(box, { label: 'No registered faces', boxColor: '#FFA500' }).draw(canvas);
-         });
       }
-
     }, 3000);
 
     return () => clearInterval(intervalId);

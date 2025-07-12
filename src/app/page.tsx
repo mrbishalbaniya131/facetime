@@ -3,13 +3,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { WebcamCapture, type WebcamCaptureRef } from "@/components/WebcamCapture";
+import { WebcamCapture, type WebcamCaptureRef, type TwoFactorChallenge } from "@/components/WebcamCapture";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, CheckCircle, ShieldAlert, Activity, MapPin, Smile } from "lucide-react";
 import type { AnalyzePersonOutput } from "@/ai/flows/compare-detected-faces";
+import { TwoFactorDialog } from "@/components/TwoFactorDialog";
 
 interface AiLog {
   id: number;
@@ -26,6 +27,11 @@ export default function Home() {
   const [aiLogs, setAiLogs] = useState<AiLog[]>([]);
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [isSecureMode, setIsSecureMode] = useState(false);
+  const [twoFactorState, setTwoFactorState] = useState<{
+    isOpen: boolean;
+    challenge: TwoFactorChallenge | null;
+  }>({ isOpen: false, challenge: null });
 
 
   useEffect(() => {
@@ -54,10 +60,26 @@ export default function Home() {
   const handleNewAudio = (newAudioSrc: string) => {
     setAudioSrc(newAudioSrc);
   };
+  
+  const handleTwoFactorChallenge = (challenge: TwoFactorChallenge) => {
+    handleNewAnalysis({
+      thought: `Face recognized for ${challenge.user.name}. Awaiting fingerprint verification...`
+    });
+    setTwoFactorState({ isOpen: true, challenge });
+  };
+  
+  const handleTwoFactorSuccess = (userName: string) => {
+    setTwoFactorState({ isOpen: false, challenge: null });
+    handleNewAnalysis({
+      thought: `Fingerprint verified for ${userName}. Two-Factor authentication successful.`
+    });
+    // Tell webcam to mark attendance
+    webcamRef.current?.markTwoFactorAttendance(userName);
+  }
 
   const renderLog = (log: AiLog) => {
     let icon = <Bot className="h-4 w-4 text-primary shrink-0" />;
-    if (log.thought.includes("Found best match") || log.thought.includes("(Attended)")) {
+    if (log.thought.includes("Found best match") || log.thought.includes("(Attended)") || log.thought.includes("successful")) {
       icon = <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />;
     } else if (log.thought.includes("No match declared") || log.thought.includes("No potential matches") || log.thought.includes("below the threshold") || log.thought.includes("Spoof attempt")) {
       icon = <ShieldAlert className="h-4 w-4 text-yellow-500 shrink-0" />;
@@ -99,7 +121,7 @@ export default function Home() {
   if (loading || !user) {
     return (
       <div className="flex flex-col min-h-screen">
-        <Header webcamRef={webcamRef} />
+        <Header webcamRef={webcamRef} isSecureMode={isSecureMode} onSecureModeChange={setIsSecureMode} />
         <main className="flex-grow flex items-center justify-center p-4 sm:p-6 md:p-8">
           <div className="w-full max-w-4xl flex flex-col items-center gap-6">
             <Skeleton className="h-10 w-48" />
@@ -113,7 +135,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <Header webcamRef={webcamRef} />
+      <Header webcamRef={webcamRef} isSecureMode={isSecureMode} onSecureModeChange={setIsSecureMode} />
       <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8 lg:grid lg:grid-cols-3 lg:gap-8">
         <div className="lg:col-span-2">
           <div className="text-left mb-8">
@@ -130,6 +152,8 @@ export default function Home() {
                     ref={webcamRef} 
                     onNewAnalysis={handleNewAnalysis} 
                     onNewAudio={handleNewAudio}
+                    onTwoFactorChallenge={handleTwoFactorChallenge}
+                    isSecureMode={isSecureMode}
                 />
               </CardContent>
           </Card>
@@ -170,6 +194,12 @@ export default function Home() {
       {audioSrc && (
         <audio ref={audioRef} src={audioSrc} autoPlay />
       )}
+      <TwoFactorDialog
+        isOpen={twoFactorState.isOpen}
+        challengeData={twoFactorState.challenge}
+        onSuccess={handleTwoFactorSuccess}
+        onClose={() => setTwoFactorState({ isOpen: false, challenge: null })}
+      />
     </div>
   );
 }

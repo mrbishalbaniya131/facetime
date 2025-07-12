@@ -19,4 +19,5 @@ export interface AttendanceRecord {
     longitude: number;
   } | null;
   mood?: string;
+  method?: 'Face' | 'Fingerprint' | 'Two-Factor';
 }

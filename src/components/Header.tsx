@@ -6,15 +6,20 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Eye, LayoutDashboard, LogOut, Camera, Users } from "lucide-react";
+import { Eye, LayoutDashboard, LogOut, Camera, Users, ShieldCheck, ShieldOff } from "lucide-react";
 import { UserRegistrationDialog } from "./UserRegistrationDialog";
 import type { WebcamCaptureRef } from "./WebcamCapture";
+import { Switch } from "./ui/switch";
+import { Label } from "./ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 interface HeaderProps {
     webcamRef?: React.RefObject<WebcamCaptureRef>;
+    isSecureMode: boolean;
+    onSecureModeChange: (isSecure: boolean) => void;
 }
 
-export default function Header({ webcamRef }: HeaderProps) {
+export default function Header({ webcamRef, isSecureMode, onSecureModeChange }: HeaderProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -56,8 +61,33 @@ export default function Header({ webcamRef }: HeaderProps) {
             </Link>
           ))}
         </nav>
-        <div className="flex flex-1 items-center justify-end gap-2">
+        <div className="flex flex-1 items-center justify-end gap-4">
             <span className="text-sm text-muted-foreground hidden md:inline">Welcome, {user.username}</span>
+
+            {pathname === '/' && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                     <div className="flex items-center space-x-2">
+                        <Switch
+                          id="secure-mode"
+                          checked={isSecureMode}
+                          onCheckedChange={onSecureModeChange}
+                          aria-label="Secure Mode"
+                        />
+                         {isSecureMode 
+                          ? <ShieldCheck className="h-5 w-5 text-green-600" />
+                          : <ShieldOff className="h-5 w-5 text-muted-foreground" />
+                        }
+                      </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Enable Secure Mode for Two-Factor (Face + Fingerprint) Authentication</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
             {pathname === '/' && webcamRef && (
                 <UserRegistrationDialog webcamRef={webcamRef} />
             )}

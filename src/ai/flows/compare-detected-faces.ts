@@ -45,11 +45,8 @@ const prompt = ai.definePrompt({
     name: 'analyzePersonPrompt',
     input: {schema: AnalyzePersonInputSchema},
     output: {schema: z.object({ activityDescription: AnalyzePersonOutputSchema.shape.activityDescription }) }, // Only need activity from LLM
-    prompt: `You are a security AI. Your task is to analyze an image of a person.
-1. First, describe the person's apparent activity based on the image in a short, concise sentence. For example: "The person is smiling and looking at the camera." or "The person appears to be talking on the phone."
-2. Do not greet or use any conversational filler. Just provide the activity description.
-
-Use the following as the source of information.
+    prompt: `You are a security AI. Describe the person's activity in the image in a short, concise sentence.
+Do not greet or use conversational filler.
 
 Image: {{media url=imageDataUri}}
 `,
@@ -81,7 +78,7 @@ const analyzePersonFlow = ai.defineFlow(
     if (input.isLocationAuthorized === true) {
         thought += `\nLocation: Verified from authorized location.`;
     } else if (input.isLocationAuthorized === false) {
-        thought += `\nLocation: Outside authorized area. Attendance will not be recorded.`;
+        thought += `\nLocation: Outside authorized area. Attendance will be unverified.`;
     } else {
         thought += `\nLocation: Status unknown.`;
     }

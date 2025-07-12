@@ -86,8 +86,8 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
         setLocationState({ hasPermission: false, isAuthorized: false, currentCoords: null });
         toast({
           title: "Location Access Denied",
-          description: "Please enable location services to mark attendance.",
-          variant: "destructive",
+          description: "Location is optional, but recommended for verified attendance.",
+          variant: "default",
         });
       },
       { enableHighAccuracy: true }
@@ -98,7 +98,8 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     captureFace: async () => {
       if (!videoRef.current) throw new Error("Webcam not ready.");
       if (!detectorOptions) throw new Error("Face detector not initialized.");
-      if(locationState.isAuthorized === false) throw new Error("Cannot capture face. You are outside the authorized location.");
+      // We no longer throw an error here to allow registration from any location
+      // if(locationState.isAuthorized === false) throw new Error("Cannot capture face. You are outside the authorized location.");
 
       const detection = await faceapi.detectSingleFace(videoRef.current, detectorOptions).withFaceLandmarks().withFaceDescriptor();
       if (!detection) throw new Error("No face detected. Please position yourself in front of the camera.");
@@ -238,7 +239,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
                 const name = result.userId;
                 drawBox = new faceapi.draw.DrawBox(box, { label: `${name} (${(result.matchConfidence*100).toFixed(1)}%)`, boxColor: '#1E90FF' });
 
-                if (!attendanceToday.current.has(name) && locationState.isAuthorized) {
+                if (!attendanceToday.current.has(name)) {
                   attendanceToday.current.add(name);
                   addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords });
                   
@@ -301,7 +302,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Location Access Denied</AlertTitle>
           <AlertDescription>
-            You must allow location access to mark attendance. Please check your browser settings.
+            You must allow location access to mark verified attendance.
           </AlertDescription>
         </Alert>
       )}
@@ -310,7 +311,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Outside Authorized Area</AlertTitle>
           <AlertDescription>
-            You are too far from the authorized location. Attendance marking is disabled.
+            Attendance from this location will be marked as unverified.
           </AlertDescription>
         </Alert>
       )}
@@ -319,7 +320,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
             <MapPin className="h-4 w-4 text-green-600" />
             <AlertTitle>Location Verified</AlertTitle>
             <AlertDescription>
-                You are within the authorized area. Attendance is enabled.
+                You are within the authorized area. Attendance will be marked as verified.
             </AlertDescription>
         </Alert>
       )}

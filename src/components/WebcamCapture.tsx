@@ -218,12 +218,16 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
             if(frameCtx) frameCtx.drawImage(video, 0, 0);
             const imageDataUri = frameCanvas.toDataURL('image/jpeg');
 
+            const expressions = (detection.expressions && typeof detection.expressions === 'object' && Object.keys(detection.expressions).length > 0)
+              ? detection.expressions
+              : {};
+
             const aiInput: AnalyzePersonInput = {
               imageDataUri,
               detectedFaceDescriptor: Array.from(detection.descriptor),
               registeredUserDescriptors,
               isLocationAuthorized: locationState.isAuthorized,
-              expressions: detection.expressions || {},
+              expressions,
             };
 
             const result = await analyzePerson(aiInput);

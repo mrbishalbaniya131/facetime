@@ -57,7 +57,7 @@ export default function Home() {
     let icon = <Bot className="h-4 w-4 text-primary shrink-0" />;
     if (log.thought.includes("Found best match")) {
       icon = <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />;
-    } else if (log.thought.includes("No match declared") || log.thought.includes("No potential matches") || log.thought.includes("below the threshold")) {
+    } else if (log.thought.includes("No match declared") || log.thought.includes("No potential matches") || log.thought.includes("below the threshold") || log.thought.includes("Spoof attempt")) {
       icon = <ShieldAlert className="h-4 w-4 text-yellow-500 shrink-0" />;
     }
     
@@ -152,7 +152,7 @@ export default function Home() {
         </div>
       </main>
       {audioSrc && (
-        <audio ref={audioRef} src={audioSrc} />
+        <audio ref={audioRef} src={audioSrc} autoPlay />
       )}
     </div>
   );

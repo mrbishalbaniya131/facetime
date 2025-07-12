@@ -26,6 +26,7 @@ const AnalyzePersonInputSchema = z.object({
   })).describe('An array of registered user IDs and their face descriptors.'),
   isLocationAuthorized: z.boolean().nullable().describe('Whether the user is in an authorized location for attendance.'),
   expressions: z.record(z.number()).describe('A map of detected facial expressions and their confidence scores (0-1).'),
+  isSpoof: z.boolean().describe('Whether the detected face is suspected to be a spoof (e.g., a photo).'),
 });
 export type AnalyzePersonInput = z.infer<typeof AnalyzePersonInputSchema>;
 
@@ -49,6 +50,10 @@ const prompt = ai.definePrompt({
     output: {schema: z.object({ activityDescription: AnalyzePersonOutputSchema.shape.activityDescription }) }, // Only need activity from LLM
     prompt: `You are a security AI. Describe the person's activity and mood in a short, concise sentence.
 Base the mood on the most prominent facial expression provided. Do not greet or use conversational filler.
+
+{{#if isSpoof}}
+The face detected is likely a spoof attempt (e.g., a photo or screen). Report this as the primary activity.
+{{/if}}
 
 Detected Expressions:
 {{#each expressions}}
@@ -88,6 +93,12 @@ const analyzePersonFlow = ai.defineFlow(
         thought += `\nLocation: Outside authorized area. Attendance will be unverified.`;
     } else {
         thought += `\nLocation: Status unknown.`;
+    }
+    
+    if (input.isSpoof) {
+        thought += `\nSpoof attempt detected! Blocking recognition.`;
+        const { output } = await prompt(input);
+        return { thought, activityDescription: output?.activityDescription || "Spoof attempt detected.", audioSrc: undefined, mood: 'spoof' };
     }
 
     let bestMatch: { userId: string; matchConfidence: number } = { userId: '', matchConfidence: 0 };

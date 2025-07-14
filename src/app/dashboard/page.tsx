@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import Header from "@/components/Header";
 import AttendanceList from "@/components/AttendanceList";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAttendanceLog, getRegisteredUsers } from "@/lib/storage";
@@ -12,6 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { AttendanceSummaryCard, type SummaryStat } from "@/components/AttendanceSummaryCard";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { ChartConfig, ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
+import { AppLayout } from "@/components/AppLayout";
+import { useRouter } from "next/navigation";
+
 
 const chartConfig = {
   present: {
@@ -93,7 +94,7 @@ export default function DashboardPage() {
   if (loading || !user) {
     return (
        <div className="flex flex-col min-h-screen">
-        <Header />
+        <Header webcamRef={null} isSecureMode={false} onSecureModeChange={() => {}} />
         <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
             <Skeleton className="h-12 w-1/4 mb-6" />
             <div className="space-y-2">
@@ -108,66 +109,64 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <Header />
-      <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
-        <h1 className="text-3xl font-bold mb-6 font-headline">Dashboard</h1>
-        
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-          {statsLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Skeleton className="h-4 w-2/4" />
-                   <Skeleton className="h-4 w-4" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-1/3" />
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            stats.map(stat => <AttendanceSummaryCard key={stat.title} {...stat} />)
-          )}
+    <AppLayout>
+        <div className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
+            <h1 className="text-3xl font-bold mb-6 font-headline">Dashboard</h1>
+            
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+            {statsLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <Skeleton className="h-4 w-2/4" />
+                    <Skeleton className="h-4 w-4" />
+                    </CardHeader>
+                    <CardContent>
+                    <Skeleton className="h-8 w-1/3" />
+                    </CardContent>
+                </Card>
+                ))
+            ) : (
+                stats.map(stat => <AttendanceSummaryCard key={stat.title} {...stat} />)
+            )}
+            </div>
+            
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+                <Card className="lg:col-span-4">
+                    <CardHeader>
+                        <CardTitle>Recent Attendance</CardTitle>
+                        <CardDescription>A log of the last 5 attendance check-ins.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <AttendanceList />
+                    </CardContent>
+                </Card>
+                <Card className="lg:col-span-3">
+                    <CardHeader>
+                        <CardTitle>Attendance Trends</CardTitle>
+                        <CardDescription>A summary of attendance over the last 7 days.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                    {statsLoading ? (
+                        <Skeleton className="h-[250px] w-full" />
+                    ) : (
+                        <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
+                            <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                            <Tooltip content={<ChartTooltipContent />} />
+                            <Legend />
+                            <Bar dataKey="present" fill="var(--color-present)" radius={4} />
+                            <Bar dataKey="absent" fill="var(--color-absent)" radius={4} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                        </ChartContainer>
+                    )}
+                    </CardContent>
+                </Card>
+            </div>
         </div>
-        
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-            <Card className="lg:col-span-4">
-                <CardHeader>
-                    <CardTitle>Recent Attendance</CardTitle>
-                    <CardDescription>A log of the last 5 attendance check-ins.</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <AttendanceList />
-                </CardContent>
-            </Card>
-            <Card className="lg:col-span-3">
-                <CardHeader>
-                    <CardTitle>Attendance Trends</CardTitle>
-                    <CardDescription>A summary of attendance over the last 7 days.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {statsLoading ? (
-                     <Skeleton className="h-[250px] w-full" />
-                  ) : (
-                    <ChartContainer config={chartConfig} className="h-[250px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
-                          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                          <Tooltip content={<ChartTooltipContent />} />
-                          <Legend />
-                          <Bar dataKey="present" fill="var(--color-present)" radius={4} />
-                          <Bar dataKey="absent" fill="var(--color-absent)" radius={4} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </ChartContainer>
-                  )}
-                </CardContent>
-            </Card>
-        </div>
-
-      </main>
-    </div>
+    </AppLayout>
   );
 }

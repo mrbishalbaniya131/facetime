@@ -15,11 +15,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { addRegisteredUser, addAuthenticatorToUser, getRegisteredUserByName } from "@/lib/storage";
+import { addRegisteredUser, addAuthenticatorToUser, getRegisteredUserByName, getRegisteredUsers } from "@/lib/storage";
 import type { WebcamCaptureRef } from "./WebcamCapture";
 import { UserPlus, Loader2, Fingerprint } from "lucide-react";
 import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
 import type { RegisteredUser } from "@/types";
+
+declare const faceapi: any;
 
 interface UserRegistrationDialogProps {
   webcamRef: React.RefObject<WebcamCaptureRef>;
@@ -72,6 +74,27 @@ export function UserRegistrationDialog({ webcamRef }: UserRegistrationDialogProp
       try {
         const descriptor = await webcamRef.current.captureFace();
         if (descriptor) {
+            // Check if a similar face already exists
+            const allUsers = getRegisteredUsers();
+            const labeledDescriptors = allUsers
+                .filter(u => u.descriptor && u.descriptor.length > 0)
+                .map(u => new faceapi.LabeledFaceDescriptors(u.name, [Float32Array.from(u.descriptor!)]));
+
+            if (labeledDescriptors.length > 0) {
+                const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5); // 0.5 is a reasonable threshold
+                const bestMatch = faceMatcher.findBestMatch(descriptor);
+                if (bestMatch.label !== 'unknown') {
+                    toast({
+                        title: "Face Already Registered",
+                        description: `A similar face is already registered under the name "${bestMatch.label}".`,
+                        variant: "destructive",
+                    });
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+
           const newUser = { name, descriptor, authenticators: existingUser?.authenticators || [] };
           
           await fetch('/api/register-user', {

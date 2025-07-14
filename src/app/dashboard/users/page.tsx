@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -9,16 +10,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Fingerprint, Smile } from "lucide-react";
+import { Fingerprint, Smile, Info } from "lucide-react";
 import { UserActions } from "@/components/UserActions";
 import { AppLayout } from "@/components/AppLayout";
 import { PageHeader } from "@/components/PageHeader";
+import { UserAttendanceLogDialog } from "@/components/UserAttendanceLogDialog";
+import { Button } from "@/components/ui/button";
 
 export default function UsersPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [users, setUsers] = useState<RegisteredUser[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<RegisteredUser | null>(null);
+  const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
 
   const syncAndFetchUsers = useCallback(async () => {
     try {
@@ -56,6 +61,11 @@ export default function UsersPage() {
     // after a user is edited or deleted.
     syncAndFetchUsers();
   }
+
+  const handleViewLog = (user: RegisteredUser) => {
+    setSelectedUser(user);
+    setIsLogDialogOpen(true);
+  };
 
   if (loading || !user || dataLoading) {
     return (
@@ -122,7 +132,13 @@ export default function UsersPage() {
                                     )}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    <UserActions user={u} onUserUpdate={handleUserUpdate} />
+                                    <div className="flex items-center justify-end gap-2">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewLog(u)}>
+                                            <Info className="h-4 w-4" />
+                                            <span className="sr-only">View Logs</span>
+                                        </Button>
+                                        <UserActions user={u} onUserUpdate={handleUserUpdate} />
+                                    </div>
                                 </TableCell>
                             </TableRow>
                             ))
@@ -138,6 +154,13 @@ export default function UsersPage() {
                 </CardContent>
             </Card>
         </main>
+        {selectedUser && (
+            <UserAttendanceLogDialog
+                isOpen={isLogDialogOpen}
+                onOpenChange={setIsLogDialogOpen}
+                userName={selectedUser.name}
+            />
+        )}
     </AppLayout>
   );
 }

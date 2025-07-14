@@ -31,6 +31,7 @@ export default function UsersPage() {
       setUsers(serverUsers);
     } catch (error) {
       console.error("Failed to sync users:", error);
+      // Fallback to local data if server fails
       const localUsers = getRegisteredUsers();
       setUsers(localUsers);
     } finally {
@@ -51,6 +52,8 @@ export default function UsersPage() {
   }, [user, syncAndFetchUsers]);
 
   const handleUserUpdate = () => {
+    // This function is passed down to UserActions to trigger a refetch
+    // after a user is edited or deleted.
     syncAndFetchUsers();
   }
 

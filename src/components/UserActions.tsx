@@ -32,7 +32,6 @@ import { Label } from "@/components/ui/label";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import type { RegisteredUser } from "@/types";
 import { useToast } from "@/hooks/use-toast";
-import { editRegisteredUser } from "@/lib/storage";
 
 interface UserActionsProps {
   user: RegisteredUser;
@@ -94,7 +93,6 @@ export function UserActions({ user, onUserUpdate }: UserActionsProps) {
             throw new Error(error.error || "Failed to edit user on server.");
         }
 
-        editRegisteredUser(user.name, newName);
         toast({
             title: "Success",
             description: `User "${user.name}" has been renamed to "${newName}".`,

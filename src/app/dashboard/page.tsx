@@ -93,8 +93,7 @@ export default function DashboardPage() {
 
   if (loading || !user) {
     return (
-       <div className="flex flex-col min-h-screen">
-        <Header webcamRef={null} isSecureMode={false} onSecureModeChange={() => {}} />
+      <AppLayout>
         <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
             <Skeleton className="h-12 w-1/4 mb-6" />
             <div className="space-y-2">
@@ -104,7 +103,7 @@ export default function DashboardPage() {
                 <Skeleton className="h-12 w-full" />
             </div>
         </main>
-      </div>
+      </AppLayout>
     );
   }
 
@@ -131,8 +130,8 @@ export default function DashboardPage() {
             )}
             </div>
             
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="lg:col-span-4">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+                <Card>
                     <CardHeader>
                         <CardTitle>Recent Attendance</CardTitle>
                         <CardDescription>A log of the last 5 attendance check-ins.</CardDescription>
@@ -141,7 +140,7 @@ export default function DashboardPage() {
                         <AttendanceList />
                     </CardContent>
                 </Card>
-                <Card className="lg:col-span-3">
+                <Card>
                     <CardHeader>
                         <CardTitle>Attendance Trends</CardTitle>
                         <CardDescription>A summary of attendance over the last 7 days.</CardDescription>

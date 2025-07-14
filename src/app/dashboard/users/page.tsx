@@ -102,7 +102,7 @@ export default function UsersPage() {
                                 <TableCell className="font-medium">{u.name}</TableCell>
                                 <TableCell>
                                     {u.descriptor && u.descriptor.length > 0 ? (
-                                        <Badge variant="secondary" className="text-green-600 border-green-200">
+                                        <Badge variant="secondary" className="text-green-600 border-green-200 bg-green-50">
                                             <Smile className="mr-1 h-3 w-3" /> Yes
                                         </Badge>
                                     ) : (
@@ -111,7 +111,7 @@ export default function UsersPage() {
                                 </TableCell>
                                 <TableCell>
                                     {u.authenticators && u.authenticators.length > 0 ? (
-                                        <Badge variant="secondary" className="text-blue-600 border-blue-200">
+                                        <Badge variant="secondary" className="text-blue-600 border-blue-200 bg-blue-50">
                                             <Fingerprint className="mr-1 h-3 w-3" /> Yes ({u.authenticators.length})
                                         </Badge>
                                     ) : (

@@ -96,12 +96,13 @@ export default function DashboardPage() {
     return (
       <AppLayout>
         <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
-            <Skeleton className="h-12 w-1/4 mb-6" />
-            <div className="space-y-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
+            <PageHeader title="Dashboard" />
+            <div className="space-y-4">
+                <Skeleton className="h-32 w-full" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Skeleton className="h-64 w-full" />
+                    <Skeleton className="h-64 w-full" />
+                </div>
             </div>
         </main>
       </AppLayout>
@@ -131,8 +132,8 @@ export default function DashboardPage() {
             )}
             </div>
             
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
-                <Card>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+                <Card className="lg:col-span-4">
                     <CardHeader>
                         <CardTitle>Recent Attendance</CardTitle>
                         <CardDescription>A log of the last 5 attendance check-ins.</CardDescription>
@@ -141,7 +142,7 @@ export default function DashboardPage() {
                         <AttendanceList />
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="lg:col-span-3">
                     <CardHeader>
                         <CardTitle>Attendance Trends</CardTitle>
                         <CardDescription>A summary of attendance over the last 7 days.</CardDescription>

@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, Fingerprint, Loader2 } from "lucide-react";
 import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
-import type { AuthenticationResponseJSON } from "@simplewebauthn/types";
 import { getRegisteredUserByName } from "@/lib/storage";
 
 export default function LoginPage() {
@@ -72,15 +71,12 @@ export default function LoginPage() {
       
     setIsWebAuthnLoading(true);
     try {
-        // 1. Get challenge from server
         const respChallenge = await fetch(`/api/login-challenge?username=${username}`);
         const options = await respChallenge.json();
         if (respChallenge.status !== 200) throw new Error(options.error);
         
-        // 2. Authenticate with browser
         const authResp = await startAuthentication(options);
 
-        // 3. Verify assertion with server
         const verificationResp = await fetch('/api/login-verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -115,7 +111,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-br from-background to-blue-50">
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-br from-background to-secondary">
        <div className="flex flex-col items-center gap-4 mb-8 text-center">
         <Eye className="h-12 w-12 text-primary" />
         <h1 className="text-4xl font-bold font-headline text-foreground">FaceTime Attendance</h1>

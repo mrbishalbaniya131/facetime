@@ -143,8 +143,8 @@ export default function Home() {
                 title="FaceTime Attendance"
                 description="Real-time attendance and activity monitoring during your FaceTime calls."
             />
-            <div className="flex-grow grid gap-8 lg:grid-cols-3">
-                <div className="lg:col-span-2">
+            <div className="flex-grow grid gap-8 md:grid-cols-5">
+                <div className="md:col-span-3">
                     <Card className="shadow-lg h-full">
                         <CardHeader>
                             <CardTitle className="text-2xl font-headline">Live Feed</CardTitle>
@@ -162,7 +162,7 @@ export default function Home() {
                     </Card>
                 </div>
                 
-                <div className="lg:col-span-1">
+                <div className="md:col-span-2">
                     <Card className="shadow-lg h-full">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">

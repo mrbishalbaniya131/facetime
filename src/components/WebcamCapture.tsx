@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from "react";
@@ -112,6 +113,9 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
         addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords, mood, method });
         const toastMessage = `Welcome, ${name}! Attendance recorded via ${method}.`;
         toast({ title: "Attendance Marked", description: toastMessage });
+        if (props.onNewAnalysis) {
+          props.onNewAnalysis({ thought: `${name} (Attended)`, mood });
+        }
       }
   }
 
@@ -258,7 +262,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
         
         if (attendanceToday.current.has(bestMatch.label)) {
             if (props.onNewAnalysis) {
-              props.onNewAnalysis({ thought: `${bestMatch.label} (Attended)`, mood });
+              props.onNewAnalysis({ thought: `Recognized: ${bestMatch.label}`, mood });
             }
             const drawBox = new faceapi.draw.DrawBox(box, { label: `${bestMatch.label} (Attended)`, boxColor: 'green' });
             drawBox.draw(canvas);
@@ -280,35 +284,12 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
                  drawBox.draw(canvas);
             }
         } else {
-          // AI analysis for unknown faces or when not in secure mode
-          processing.current = true;
-          try {
-             const frameCanvas = document.createElement('canvas');
-              frameCanvas.width = video.videoWidth;
-              frameCanvas.height = video.videoHeight;
-              const frameCtx = frameCanvas.getContext('2d');
-              if(frameCtx) frameCtx.drawImage(video, 0, 0);
-              const imageDataUri = frameCanvas.toDataURL('image/jpeg');
-
-              const result = await analyzePerson({
-                imageDataUri,
-                detectedFaceDescriptor: Array.from(detection.descriptor),
-                isLocationAuthorized: locationState.isAuthorized
-              });
-
-              if (props.onNewAnalysis) props.onNewAnalysis({...result, mood});
-              if (result.audioSrc && props.onNewAudio) props.onNewAudio(result.audioSrc);
-
-              const label = result.userId ? `${result.userId} (${(result.matchConfidence!*100).toFixed(1)}%)` : 'Unknown';
-              const boxColor = result.userId ? '#1E90FF' : '#FF6347';
-              const drawBox = new faceapi.draw.DrawBox(box, { label, boxColor });
-              drawBox.draw(canvas);
-
-          } catch (error) {
-              console.error("Error during face analysis:", error);
-          } finally {
-              processing.current = false;
+          // AI analysis for unknown faces
+          if (props.onNewAnalysis) {
+            props.onNewAnalysis({ thought: 'Unknown person detected.', mood });
           }
+          const drawBox = new faceapi.draw.DrawBox(box, { label: 'Unknown', boxColor: '#FF6347' });
+          drawBox.draw(canvas);
         }
       }
     }, 3000);
@@ -363,3 +344,5 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
 });
 
 WebcamCapture.displayName = 'WebcamCapture';
+
+    

@@ -84,13 +84,13 @@ function AppLayoutContent({ children, webcamRef, isSecureMode, onSecureModeChang
             </p>
           )}
           <Button variant="ghost" size="sm" onClick={logout} className="justify-start">
-            <LogOut />
-            <span>Logout</span>
+            <LogOut className="mr-2" />
+            <span className={cn(state === "collapsed" && "hidden")}>Logout</span>
           </Button>
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset>
+      <SidebarInset className="flex flex-col">
           <Header webcamRef={webcamRef} isSecureMode={isSecureMode!} onSecureModeChange={onSecureModeChange!} />
           {children}
       </SidebarInset>

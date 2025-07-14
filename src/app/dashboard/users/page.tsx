@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Fingerprint, Smile } from "lucide-react";
 import { UserActions } from "@/components/UserActions";
 import { AppLayout } from "@/components/AppLayout";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function UsersPage() {
   const { user, loading } = useAuth();
@@ -56,8 +57,8 @@ export default function UsersPage() {
   if (loading || !user || dataLoading) {
     return (
        <AppLayout>
-            <div className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
-                <h1 className="text-3xl font-bold mb-6 font-headline">User Management</h1>
+            <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
+                <PageHeader title="User Management" />
                 <Card>
                     <CardHeader>
                         <Skeleton className="h-6 w-1/4" />
@@ -71,19 +72,18 @@ export default function UsersPage() {
                         </div>
                     </CardContent>
                 </Card>
-            </div>
+            </main>
         </AppLayout>
     );
   }
 
   return (
     <AppLayout>
-        <div className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
-            <h1 className="text-3xl font-bold mb-6 font-headline">User Management</h1>
+        <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8 flex flex-col">
+            <PageHeader title="User Management" description="A list of all users registered in the system." />
             <Card>
                 <CardHeader>
                     <CardTitle>Registered Users</CardTitle>
-                    <CardDescription>A list of all users registered in the system.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -134,7 +134,7 @@ export default function UsersPage() {
                     </Table>
                 </CardContent>
             </Card>
-        </div>
+        </main>
     </AppLayout>
   );
 }

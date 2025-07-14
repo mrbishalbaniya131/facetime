@@ -11,6 +11,7 @@ import { Bot, CheckCircle, ShieldAlert, Activity, MapPin, Smile } from "lucide-r
 import type { AnalyzePersonOutput } from "@/ai/flows/compare-detected-faces";
 import { TwoFactorDialog } from "@/components/TwoFactorDialog";
 import { AppLayout } from "@/components/AppLayout";
+import { PageHeader } from "@/components/PageHeader";
 
 interface AiLog {
   id: number;
@@ -137,59 +138,59 @@ export default function Home() {
         isSecureMode={isSecureMode}
         onSecureModeChange={setIsSecureMode}
     >
-        <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8 lg:grid lg:grid-cols-3 lg:gap-8">
-            <div className="lg:col-span-2">
-            <div className="text-left mb-8">
-                <h1 className="text-2xl md:text-3xl font-bold leading-tight tracking-tight font-headline">FaceTime Attendance</h1>
-                <p className="text-muted-foreground mt-2">Real-time attendance and activity monitoring during your FaceTime calls.</p>
-            </div>
-            <Card className="shadow-lg">
-                <CardHeader>
-                    <CardTitle className="text-2xl font-headline">Live Feed</CardTitle>
-                    <CardDescription>The system is actively scanning for faces.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <WebcamCapture 
-                        ref={webcamRef} 
-                        onNewAnalysis={handleNewAnalysis} 
-                        onNewAudio={handleNewAudio}
-                        onTwoFactorChallenge={handleTwoFactorChallenge}
-                        isSecureMode={isSecureMode}
-                    />
-                </CardContent>
-            </Card>
-            </div>
-            
-            <div className="lg:col-span-1 mt-8 lg:mt-0">
-            <div className="sticky top-20">
-                <Card className="shadow-lg">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Bot className="h-6 w-6" />
-                            <span className="font-headline">AI Activity Log</span>
-                        </CardTitle>
-                        <CardDescription>Real-time analysis from the recognition AI.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ScrollArea className="h-[500px] w-full pr-4">
-                            <div className="space-y-4">
-                                {aiLogs.length > 0 ? (
-                                    aiLogs.map((log) => (
-                                        <div key={log.id} className="flex flex-col border-b pb-2 mb-2">
-                                        <span className="text-xs font-mono text-muted-foreground/50">{log.timestamp}</span>
-                                        {renderLog(log)}
+        <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8 flex flex-col">
+            <PageHeader 
+                title="FaceTime Attendance"
+                description="Real-time attendance and activity monitoring during your FaceTime calls."
+            />
+            <div className="flex-grow grid gap-8 lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                    <Card className="shadow-lg h-full">
+                        <CardHeader>
+                            <CardTitle className="text-2xl font-headline">Live Feed</CardTitle>
+                            <CardDescription>The system is actively scanning for faces.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <WebcamCapture 
+                                ref={webcamRef} 
+                                onNewAnalysis={handleNewAnalysis} 
+                                onNewAudio={handleNewAudio}
+                                onTwoFactorChallenge={handleTwoFactorChallenge}
+                                isSecureMode={isSecureMode}
+                            />
+                        </CardContent>
+                    </Card>
+                </div>
+                
+                <div className="lg:col-span-1">
+                    <Card className="shadow-lg h-full">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Bot className="h-6 w-6" />
+                                <span className="font-headline">AI Activity Log</span>
+                            </CardTitle>
+                            <CardDescription>Real-time analysis from the recognition AI.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <ScrollArea className="h-[500px] w-full pr-4">
+                                <div className="space-y-4">
+                                    {aiLogs.length > 0 ? (
+                                        aiLogs.map((log) => (
+                                            <div key={log.id} className="flex flex-col border-b pb-2 mb-2">
+                                            <span className="text-xs font-mono text-muted-foreground/50">{log.timestamp}</span>
+                                            {renderLog(log)}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                                            Waiting for activity...
                                         </div>
-                                    ))
-                                ) : (
-                                    <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                                        Waiting for activity...
-                                    </div>
-                                )}
-                            </div>
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
-            </div>
+                                    )}
+                                </div>
+                            </ScrollArea>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
         </main>
         {audioSrc && (

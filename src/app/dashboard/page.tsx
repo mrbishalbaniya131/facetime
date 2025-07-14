@@ -12,6 +12,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } fro
 import { ChartConfig, ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import { AppLayout } from "@/components/AppLayout";
 import { useRouter } from "next/navigation";
+import { PageHeader } from "@/components/PageHeader";
 
 
 const chartConfig = {
@@ -109,8 +110,8 @@ export default function DashboardPage() {
 
   return (
     <AppLayout>
-        <div className="flex-grow container mx-auto p-4 sm:p-6 md:p-8">
-            <h1 className="text-3xl font-bold mb-6 font-headline">Dashboard</h1>
+        <main className="flex-grow container mx-auto p-4 sm:p-6 md:p-8 flex flex-col">
+            <PageHeader title="Dashboard" description="An overview of attendance statistics and trends." />
             
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
             {statsLoading ? (
@@ -165,7 +166,7 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
             </div>
-        </div>
+        </main>
     </AppLayout>
   );
 }

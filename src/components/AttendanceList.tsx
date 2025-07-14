@@ -94,6 +94,12 @@ export default function AttendanceList() {
              <TableHead>
               <div className="flex items-center gap-2">
                 <Smile className="h-4 w-4" />
+                Mood
+              </div>
+            </TableHead>
+            <TableHead>
+              <div className="flex items-center gap-2">
+                <Smile className="h-4 w-4" />
                 Method
               </div>
             </TableHead>
@@ -112,6 +118,7 @@ export default function AttendanceList() {
               <TableRow key={record.id}>
                 <TableCell className="font-medium">{record.name}</TableCell>
                 <TableCell>{new Date(record.timestamp).toLocaleString()}</TableCell>
+                <TableCell>{record.mood || "N/A"}</TableCell>
                  <TableCell>{record.method || "N/A"}</TableCell>
                 <TableCell>
                   {record.location 
@@ -126,7 +133,7 @@ export default function AttendanceList() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={5} className="text-center h-24">
+              <TableCell colSpan={6} className="text-center h-24">
                 No attendance records found for today.
               </TableCell>
             </TableRow>

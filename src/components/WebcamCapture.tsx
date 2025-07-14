@@ -29,7 +29,7 @@ export interface TwoFactorChallenge {
 export interface WebcamCaptureRef {
   captureFace: () => Promise<number[] | null>;
   reloadFaceMatcher: () => void;
-  markTwoFactorAttendance: (name: string) => void;
+  markTwoFactorAttendance: (name: string, mood?: string) => void;
 }
 
 interface WebcamCaptureProps {
@@ -106,8 +106,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
     );
   };
   
-  const markAttendance = (name: string, method: 'Face' | 'Two-Factor') => {
-      const mood = "N/A"; 
+  const markAttendance = (name: string, method: 'Face' | 'Two-Factor', mood?: string) => {
       if (!attendanceToday.current.has(name)) {
         attendanceToday.current.add(name);
         addAttendanceLog({ name, timestamp: new Date().toISOString(), location: locationState.currentCoords, mood, method });
@@ -127,7 +126,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
       return Array.from(detection.descriptor);
     },
     reloadFaceMatcher: () => {},
-    markTwoFactorAttendance: (name: string) => markAttendance(name, 'Two-Factor')
+    markTwoFactorAttendance: (name: string, mood?: string) => markAttendance(name, 'Two-Factor', mood)
   }));
   
   const resetInactivityTimer = () => {
@@ -267,7 +266,7 @@ export const WebcamCapture = forwardRef<WebcamCaptureRef, WebcamCaptureProps>((p
         }
 
         if (bestMatch.label !== 'unknown' && !props.isSecureMode) {
-          markAttendance(bestMatch.label, 'Face');
+          markAttendance(bestMatch.label, 'Face', mood);
           const drawBox = new faceapi.draw.DrawBox(box, { label: `${bestMatch.label} (Attended)`, boxColor: 'green' });
           drawBox.draw(canvas);
         } else if (bestMatch.label !== 'unknown' && props.isSecureMode) {

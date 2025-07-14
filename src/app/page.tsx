@@ -69,12 +69,12 @@ export default function Home() {
     setTwoFactorState({ isOpen: true, challenge });
   };
   
-  const handleTwoFactorSuccess = (userName: string) => {
+  const handleTwoFactorSuccess = (userName: string, mood?: string) => {
     setTwoFactorState({ isOpen: false, challenge: null });
     handleNewAnalysis({
       thought: `Fingerprint verified for ${userName}. Two-Factor authentication successful.`
     });
-    webcamRef.current?.markTwoFactorAttendance(userName);
+    webcamRef.current?.markTwoFactorAttendance(userName, mood);
   }
 
   const renderLog = (log: AiLog) => {
@@ -199,7 +199,7 @@ export default function Home() {
         <TwoFactorDialog
             isOpen={twoFactorState.isOpen}
             challengeData={twoFactorState.challenge}
-            onSuccess={handleTwoFactorSuccess}
+            onSuccess={(name) => handleTwoFactorSuccess(name, twoFactorState.challenge?.mood)}
             onClose={() => setTwoFactorState({ isOpen: false, challenge: null })}
         />
     </AppLayout>

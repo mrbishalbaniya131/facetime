@@ -20,4 +20,5 @@ export interface AttendanceRecord {
     longitude: number;
   } | null;
   method?: 'Face' | 'Two-Factor';
+  mood?: string;
 }

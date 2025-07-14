@@ -42,6 +42,7 @@ export function UserAttendanceLogDialog({ isOpen, onOpenChange, userName }: User
                     <TableRow>
                         <TableHead>Timestamp</TableHead>
                         <TableHead>Method</TableHead>
+                        <TableHead>Mood</TableHead>
                         <TableHead>Location</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -51,6 +52,7 @@ export function UserAttendanceLogDialog({ isOpen, onOpenChange, userName }: User
                             <TableRow key={log.id}>
                                 <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
                                 <TableCell>{log.method || "N/A"}</TableCell>
+                                <TableCell>{log.mood || "N/A"}</TableCell>
                                 <TableCell>
                                     {log.location
                                         ? `${log.location.latitude.toFixed(3)}, ${log.location.longitude.toFixed(3)}`
@@ -60,7 +62,7 @@ export function UserAttendanceLogDialog({ isOpen, onOpenChange, userName }: User
                         ))
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={3} className="h-24 text-center">
+                            <TableCell colSpan={4} className="h-24 text-center">
                                 No attendance records found for this user.
                             </TableCell>
                         </TableRow>
